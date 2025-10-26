@@ -2,7 +2,7 @@ import pygame
 import random
 
 class SpaceBackground:
-    def __init__(self, width, height, screen_width, screen_height, num_stars=200):
+    def __init__(self, width, height, screen_width, screen_height, num_stars=500):
         self.width = width
         self.height = height
         self.screen_width = screen_width
