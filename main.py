@@ -27,16 +27,20 @@ running = True
 scroll_up = False
 scroll_down = False
 
-bg = SpaceBackground(width=10000, height=10000, screen_width=1920, screen_height=1080)
+WORLD_SIZE = 5000000 # To jest tylko logiczna granica, nie fizyczna powierzchnia
+TILE_WIDTH = 1920
+TILE_HEIGHT = 1080
+
+#bg = SpaceBackground(width=100000, height=100000, screen_width=1920, screen_height=1080,num_stars=10000)
+bg = SpaceBackground(tile_width=TILE_WIDTH, tile_height=TILE_HEIGHT, screen_width=1920, screen_height=1080, num_stars=100)
+player_pos = [WORLD_SIZE // 2, WORLD_SIZE // 2] # Utrzymaj gracza w środku logicznego świata
 player_pos = [5000,5000]
 
 clock = pygame.time.Clock()
 FPS = 60
 
-
+moving_left = moving_right = moving_up = moving_down = False
 while running:
-
-    moving_left = moving_right = moving_up = moving_down = False
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
