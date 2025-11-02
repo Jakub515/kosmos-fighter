@@ -20,12 +20,6 @@ loaded_space_frames = []
 for i in space_frames:
     loaded_space_frames.append(image_load.get_image(i,100))
 
-player = space_ship.SpaceShip(loaded_space_frames,space_parts,audio_files,1920,1080)
-
-running = True
-
-scroll_up = False
-scroll_down = False
 
 WORLD_SIZE = 5000000 # To jest tylko logiczna granica, nie fizyczna powierzchnia
 TILE_WIDTH = 1920
@@ -36,10 +30,19 @@ bg = SpaceBackground(tile_width=TILE_WIDTH, tile_height=TILE_HEIGHT, screen_widt
 player_pos = [WORLD_SIZE // 2, WORLD_SIZE // 2] # Utrzymaj gracza w środku logicznego świata
 player_pos = [5000,5000]
 
+player = space_ship.SpaceShip(loaded_space_frames,space_parts,audio_files,1920,1080, player_pos)
+
+running = True
+
+scroll_up = False
+scroll_down = False
+
+
+
 clock = pygame.time.Clock()
 FPS = 60
 
-moving_left = moving_right = moving_up = moving_down = False
+key_up = key_down = key_right = key_left = False
 while running:
 
     for event in pygame.event.get():
@@ -47,24 +50,24 @@ while running:
             running = False
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_LEFT:
-                moving_left = True
+                key_left = True
             elif event.key == pygame.K_RIGHT:
-                moving_right = True
+                key_right = True
             elif event.key == pygame.K_UP:
-                moving_up = True
+                key_up = True
             elif event.key == pygame.K_DOWN:
-                moving_down = True
+                key_down = True
         elif event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT:
-                moving_left = False
+                key_left = False
             elif event.key == pygame.K_RIGHT:
-                moving_right = False
+                key_right = False
             elif event.key == pygame.K_UP:
-                moving_up = False
+                key_up = False
             elif event.key == pygame.K_DOWN:
-                moving_down = False
+                key_down = False
 
-    # Aktualizacja pozycji gracza
+    """# Aktualizacja pozycji gracza
     if moving_left:
         player_pos[0] -= 5
     if moving_right:
@@ -72,7 +75,8 @@ while running:
     if moving_up:
         player_pos[1] -= 5
     if moving_down:
-        player_pos[1] += 5
+        player_pos[1] += 5"""
+    player_pos = player.update(key_up, key_down, key_right, key_left)
     
     bg.draw(window, player_pos)
     player.draw(window)
