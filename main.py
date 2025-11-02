@@ -2,6 +2,7 @@ import pygame
 import load_images
 import space_ship
 from sky import SpaceBackground
+#small comment
 
 pygame.init()
 
