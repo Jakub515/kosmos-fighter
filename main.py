@@ -2,6 +2,8 @@ import pygame
 import load_images
 import space_ship
 from sky import SpaceBackground
+import enemy_ship
+import time
 
 pygame.init()
 
@@ -31,6 +33,9 @@ player_pos = [WORLD_SIZE // 2, WORLD_SIZE // 2] # Utrzymaj gracza w środku logi
 player_pos = [5000,5000]
 
 player = space_ship.SpaceShip(loaded_space_frames,space_parts,audio_files,1920,1080, player_pos)
+
+audio_files = []
+enemie = enemy_ship.EnemyShip(loaded_space_frames,space_parts,audio_files,1920,1080, player_pos)
 
 running = True
 
@@ -77,9 +82,11 @@ while running:
     if moving_down:
         player_pos[1] += 5"""
     player_pos = player.update(key_up, key_down, key_right, key_left)
+    enemy_update = enemie.update()
     
     bg.draw(window, player_pos)
     player.draw(window)
+    enemie.draw(window,player_pos[0],player_pos[1])
 
     pygame.display.flip()
 

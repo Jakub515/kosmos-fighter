@@ -29,6 +29,8 @@ class SpaceShip():
         else:
             if self.speed > 0:
                 self.speed -= 0.05
+            else:
+                self.speed = 0
         if key_down:
             self.speed -= 0.05
             if self.speed < 0:
