@@ -6,6 +6,7 @@ import enemy_ship
 import time
 import os
 from collections import defaultdict
+from functions import Event
 
 pygame.init()
 
@@ -77,41 +78,14 @@ scroll_down = False
 clock = pygame.time.Clock()
 FPS = 60
 
-key_up = key_down = key_right = key_left = False
+event = Event()
+
 while running:
+    event.update()
+    if event.system_exit:
+        running = False
 
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_LEFT:
-                key_left = True
-            elif event.key == pygame.K_RIGHT:
-                key_right = True
-            elif event.key == pygame.K_UP:
-                key_up = True
-            elif event.key == pygame.K_DOWN:
-                key_down = True
-        elif event.type == pygame.KEYUP:
-            if event.key == pygame.K_LEFT:
-                key_left = False
-            elif event.key == pygame.K_RIGHT:
-                key_right = False
-            elif event.key == pygame.K_UP:
-                key_up = False
-            elif event.key == pygame.K_DOWN:
-                key_down = False
-
-    """# Aktualizacja pozycji gracza
-    if moving_left:
-        player_pos[0] -= 5
-    if moving_right:
-        player_pos[0] += 5
-    if moving_up:
-        player_pos[1] -= 5
-    if moving_down:
-        player_pos[1] += 5"""
-    player_pos = player.update(key_up, key_down, key_right, key_left)
+    player_pos = player.update(event.key_up, event.key_down, event.key_right, event.key_left, event.key_space, event.mouse_x, event.mouse_y,[event.key_1,event.key_2,event.key_3,event.key_4,event.key_5])
     enemy_update = enemie.update()
     
     bg.draw(window, player_pos)
