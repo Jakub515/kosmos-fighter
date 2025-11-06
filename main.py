@@ -4,6 +4,8 @@ import space_ship
 from sky import SpaceBackground
 import enemy_ship
 import time
+import os
+from collections import defaultdict
 
 pygame.init()
 
@@ -14,14 +16,42 @@ pygame.display.set_caption("Kosmos")
 
 image_load = load_images.ImageLoad()
 
-space_frames = ["images/space_ships/playerShip1_blue.png","images/space_ships/playerShip1_green.png","images/space_ships/playerShip1_orange.png","images/space_ships/playerShip1_red.png","images/space_ships/playerShip2_blue.png","images/space_ships/playerShip2_green.png","images/space_ships/playerShip2_orange.png","images/space_ships/playerShip2_red.png","images/space_ships/playerShip3_blue.png","images/space_ships/playerShip3_green.png","images/space_ships/playerShip3_orange.png","images/space_ships/playerShip3_red.png","images/space_ships/spaceShips_001.png","images/space_ships/spaceShips_002.png","images/space_ships/spaceShips_003.png","images/space_ships/spaceShips_004.png","images/space_ships/spaceShips_005.png","images/space_ships/spaceShips_006.png","images/space_ships/spaceShips_007.png","images/space_ships/spaceShips_008.png","images/space_ships/spaceShips_009.png","images/space_ships/ufoBlue.png","images/space_ships/ufoGreen.png","images/space_ships/ufoRed.png","images/space_ships/ufoYellow.png"]
+base_folder = os.path.join(os.getcwd(), "images")
+if not os.path.exists(base_folder):
+    print("Folder 'images' nie istnieje.")
+else:
+    files_by_ext = defaultdict(list)
+
+    # Rekurencyjne przeszukiwanie folderu
+    for root, _, files in os.walk(base_folder):
+        for file in files:
+            _, ext = os.path.splitext(file)
+            ext = ext.lower() or "<bez rozszerzenia>"
+
+            # Pełna ścieżka względna względem katalogu roboczego
+            rel_path = os.path.relpath(os.path.join(root, file), os.getcwd())
+            rel_path = rel_path.replace("\\", "/")  # 👈 zamiana backslashy
+            files_by_ext[ext].append(rel_path)
+
+
+    # Posortowany wynik
+    space_frames = []
+    audio_files = []
+    for ext in sorted(files_by_ext):
+        print(f"\nRozszerzenie: {ext}")
+        for path in sorted(files_by_ext[ext]):
+            print(f"  {path}")
+            if ext == ".png":
+                space_frames.append(path)
+            if ext == ".wav":
+                audio_files.append(path)
+
 space_parts = []
-audio_files = []
 
-loaded_space_frames = []
-for i in space_frames:
-    loaded_space_frames.append(image_load.get_image(i,100))
+loaded_space_frames = {}
 
+for path in space_frames:
+    loaded_space_frames[path] = image_load.get_image(path, 100)
 
 WORLD_SIZE = 5000000 # To jest tylko logiczna granica, nie fizyczna powierzchnia
 TILE_WIDTH = 1920

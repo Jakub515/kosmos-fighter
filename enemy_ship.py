@@ -8,7 +8,7 @@ class EnemyShip():
         self.ship_parts = ship_parts
         self.ship_audio_path = ship_audio_path
         
-        self.actual_frame = pygame.transform.rotate(ship_frames[20], -90)
+        self.actual_frame = pygame.transform.rotate(self.ship_frames["images/space_ships/spaceShips_009.png"], -90)
         self.cxx = cxx
         self.cyy = cyy
 
