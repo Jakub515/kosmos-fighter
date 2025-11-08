@@ -18,7 +18,7 @@ class SpaceShip():
         self.player_pos = pygame.math.Vector2(player_pos[0], player_pos[1])
         self.angle = 90
         self.speed = 0
-        self.max_speed = 25
+        self.max_speed = 15
 
         self.player_rect = None
 
