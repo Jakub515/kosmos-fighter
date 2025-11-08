@@ -81,11 +81,15 @@ FPS = 60
 event = Event()
 
 while running:
+    dt = clock.tick(FPS) / 1000
+
     event.update()
     if event.system_exit:
         running = False
+    if event.click_right:
+        print(event.mouse_x,event.mouse_y)
 
-    player_pos = player.update(event.key_up, event.key_down, event.key_right, event.key_left, event.key_space, event.mouse_x, event.mouse_y,[event.key_1,event.key_2,event.key_3,event.key_4,event.key_5])
+    player_pos = player.update(event.key_up, event.key_down, event.key_right, event.key_left, event.key_space, [event.key_1,event.key_2,event.key_3,event.key_4,event.key_5],dt)
     enemy_update = enemie.update()
     
     bg.draw(window, player_pos)
@@ -93,7 +97,5 @@ while running:
     enemie.draw(window,player_pos[0],player_pos[1])
 
     pygame.display.flip()
-
-    clock.tick(FPS)
 
 pygame.quit()

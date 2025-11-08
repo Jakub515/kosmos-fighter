@@ -1,4 +1,5 @@
 import pygame
+import math
 
 class SpaceShip():
     def __init__(self, ship_frames, ship_parts, ship_audio_path, cxx, cyy, player_pos):
@@ -6,7 +7,9 @@ class SpaceShip():
         self.ship_parts = ship_parts
         self.ship_audio_path = ship_audio_path
         
-        self.actual_frame = pygame.transform.rotate(self.ship_frames["images/space_ships/playerShip1_blue.png"], -90)
+        self.actual_frame = pygame.transform.rotate(
+            self.ship_frames["images/space_ships/playerShip1_blue.png"], -90
+        )
         self.cxx = cxx
         self.cyy = cyy
 
@@ -15,31 +18,37 @@ class SpaceShip():
         self.speed = 0
         self.max_speed = 25
 
-        # 🔧 przesunięcie środka obrotu (np. 20 px w dół)
-        self.pivot_offset = pygame.Vector2(0, 0)
+        self.player_rect = None
 
+        # Wgrane bronie: [obrazek, prędkość, damage, reload]
         self.weapons = [
-            # Wgrane obrazki                  prędkość px/pętla, siła rażenia
-            [self.ship_frames["images/Lasers/laserBlue12.png"], 30, 5],
-            [self.ship_frames["images/Lasers/laserBlue13.png"], 35, 4],
-            [self.ship_frames["images/Lasers/laserBlue14.png"], 40, 3],
-            [self.ship_frames["images/Lasers/laserBlue15.png"], 45, 2],
-            [self.ship_frames["images/Lasers/laserBlue16.png"], 50, 1]
+            [self.ship_frames["images/Lasers/laserBlue12.png"], 60, 5, 0.5],
+            [self.ship_frames["images/Lasers/laserBlue13.png"], 65, 4, 0.4],
+            [self.ship_frames["images/Lasers/laserBlue14.png"], 70, 3, 0.3],
+            [self.ship_frames["images/Lasers/laserBlue15.png"], 75, 2, 0.2],
+            [self.ship_frames["images/Lasers/laserBlue16.png"], 80, 1, 0.1]
         ]
+        self.weapon_timers = [0.0 for _ in self.weapons]  # timer reloadu dla każdej broni
+
         self.shots = []
         self.current_weapon = 0
 
-    def update(self, key_up, key_down, key_right, key_left, space, mouse_x, mouse_y, numbers):
+    def update(self, key_up, key_down, key_right, key_left, space, numbers, dt):
+        """
+        dt - delta time w sekundach od ostatniej klatki
+        """
+        # Zmiana broni
         for index, i in enumerate(numbers):
             if i:
                 self.current_weapon = index
 
+        # Sterowanie statkiem
         if key_right:
             self.angle -= 1.5
         if key_left:
             self.angle += 1.5
         if key_up:
-            if not self.speed > self.max_speed:
+            if self.speed < self.max_speed:
                 self.speed += 0.1
         else:
             if self.speed > 0:
@@ -51,30 +60,58 @@ class SpaceShip():
             if self.speed < 0:
                 self.speed = 0
 
+        # Ruch statku
         direction = pygame.math.Vector2(1, 0).rotate(-self.angle)
         self.player_pos += direction * self.speed
 
+        # Aktualizacja timerów reloadu broni
+        for i in range(len(self.weapon_timers)):
+            self.weapon_timers[i] += dt
+
+        # Strzał w kierunku statku
         if space:
-            mouse_pos = pygame.math.Vector2([mouse_x,mouse_y])
-            direction = (mouse_pos - self.player_pos).normalize()
-            data = self.weapons[self.current_weapon]
-            self.shots.append([self.player_pos.copy(),mouse_pos,direction,data])
+            weapon_data = self.weapons[self.current_weapon]
+            reload_time = weapon_data[3]
+
+            if self.weapon_timers[self.current_weapon] >= reload_time:
+                self.weapon_timers[self.current_weapon] = 0.0
+
+                # Kierunek pocisku = kierunek statku
+                shot_direction = pygame.math.Vector2(1, 0).rotate(-self.angle)
+                direction_angle = self.angle  # do obrotu obrazka pocisku
+
+                # Startowa pozycja = dokładny środek obrotu statku w świecie
+                shot_start_pos = self.player_pos.copy()
+
+                self.shots.append({
+                    "pos": shot_start_pos,
+                    "vel": shot_direction * weapon_data[1],
+                    "img": weapon_data[0],
+                    "damage": weapon_data[2],
+                    "dir": direction_angle
+                })
+
+        # Aktualizacja pocisków
+        for shot in self.shots:
+            shot["pos"] += shot["vel"]
 
         return [self.player_pos.x, self.player_pos.y]
 
+
     def draw(self, window):
-        # Obrót obrazka
-        rotated_image = pygame.transform.rotozoom(self.actual_frame, self.angle, 1)
+        # Obrót statku wokół środka sprite'a
+        rotated_image = pygame.transform.rotate(self.actual_frame, self.angle)
+        rect = rotated_image.get_rect(center=(self.cxx // 2+5, self.cyy // 2+35))  # zawsze środek ekranu
 
-        # Obracamy przesunięcie pivotu
-        offset_rotated = self.pivot_offset.rotate(self.angle)
+        # Kamera
+        camera_x = self.player_pos.x - (self.cxx // 2)
+        camera_y = self.player_pos.y - (self.cyy // 2)
 
-        # Rysujemy NA ŚRODKU EKRANU (tak jak miałeś wcześniej), ale z poprawką pivotu
-        center = pygame.Vector2(self.cxx // 2, self.cyy // 2) + offset_rotated
-
-        rect = rotated_image.get_rect(center=center)
-
+        # Rysowanie pocisków
         for shot in self.shots:
-            shot[0]+=
+            screen_x = shot["pos"].x - camera_x
+            screen_y = shot["pos"].y - camera_y
+            window.blit(pygame.transform.rotate(shot["img"], shot["dir"]+90), (screen_x, screen_y))
 
-        window.blit(rotated_image, (rect.x-175,rect.y-100))
+        # Rysowanie statku
+        window.blit(rotated_image, rect.topleft)
