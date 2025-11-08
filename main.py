@@ -9,6 +9,7 @@ from collections import defaultdict
 from functions import Event
 
 pygame.init()
+pygame.mixer.init()
 
 clock = pygame.time.Clock()
 
@@ -80,6 +81,10 @@ FPS = 60
 
 event = Event()
 
+pygame.mixer.music.load("images/audio/star_wars.mp3")
+pygame.mixer.music.set_volume(0.5)
+pygame.mixer.music.play(-1)
+
 while running:
     dt = clock.tick(FPS) / 1000
 
@@ -98,4 +103,5 @@ while running:
 
     pygame.display.flip()
 
+pygame.mixer.music.stop()
 pygame.quit()

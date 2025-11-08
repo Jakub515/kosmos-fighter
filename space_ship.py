@@ -6,6 +6,8 @@ class SpaceShip():
         self.ship_frames = ship_frames
         self.ship_parts = ship_parts
         self.ship_audio_path = ship_audio_path
+        self.laser_music = pygame.mixer.Sound("images/audio/sfx_laser1.wav")
+        self.laser_music.set_volume(0.7)
         
         self.actual_frame = pygame.transform.rotate(
             self.ship_frames["images/space_ships/playerShip1_blue.png"], -90
@@ -90,6 +92,7 @@ class SpaceShip():
                     "damage": weapon_data[2],
                     "dir": direction_angle
                 })
+                self.laser_music.play()
 
         # Aktualizacja pocisków
         for shot in self.shots:
