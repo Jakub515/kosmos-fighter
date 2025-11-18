@@ -7,6 +7,7 @@ import time
 import os
 from collections import defaultdict
 from functions import Event
+from enemy_ship import EnemyManager
 
 pygame.init()
 pygame.mixer.init()
@@ -53,7 +54,7 @@ space_parts = []
 loaded_space_frames = {}
 
 for path in space_frames:
-    loaded_space_frames[path] = image_load.get_image(path, 100)
+    loaded_space_frames[path] = image_load.get_image(path, 40)
 
 WORLD_SIZE = 5000000 # To jest tylko logiczna granica, nie fizyczna powierzchnia
 TILE_WIDTH = 1920
@@ -66,8 +67,8 @@ player_pos = [5000,5000]
 
 player = space_ship.SpaceShip(loaded_space_frames,space_parts,audio_files,1920,1080, player_pos)
 
-audio_files = []
-enemie = enemy_ship.EnemyShip(loaded_space_frames,space_parts,audio_files,1920,1080, player_pos)
+#audio_files = []
+#enemie = enemy_ship.EnemyShip(loaded_space_frames,space_parts,audio_files,1920,1080, player_pos)
 
 running = True
 
@@ -85,6 +86,8 @@ pygame.mixer.music.load("images/audio/star_wars.mp3")
 pygame.mixer.music.set_volume(0.5)
 pygame.mixer.music.play(-1)
 
+enemy_manager = EnemyManager(loaded_space_frames, player, max_enemies=10)
+
 while running:
     dt = clock.tick(FPS) / 1000
 
@@ -95,11 +98,18 @@ while running:
         print(event.mouse_x,event.mouse_y)
 
     player_pos = player.update(event.key_up, event.key_down, event.key_right, event.key_left, event.key_space, [event.key_1,event.key_2,event.key_3,event.key_4,event.key_5],dt)
-    enemy_update = enemie.update()
-    
+    #enemy_update = enemie.update()
+    enemy_manager.update(dt)
+
     bg.draw(window, player_pos)
+    camera_x = player.player_pos.x - (TILE_WIDTH // 2)
+    camera_y = player.player_pos.y - (TILE_HEIGHT // 2)
+
     player.draw(window)
-    enemie.draw(window,player_pos[0],player_pos[1])
+    enemy_manager.draw(window, camera_x, camera_y)
+
+    
+    #enemie.draw(window,player_pos[0],player_pos[1])
 
     pygame.display.flip()
 
