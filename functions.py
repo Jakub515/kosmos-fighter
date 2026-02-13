@@ -23,6 +23,7 @@ class Event:
         self.click_left      = False
         self.click_right     = False
         self.system_exit     = False
+        self.backquote       = False
 
         # klawisze funkcyjne
         self.key_f1  = False
@@ -152,6 +153,8 @@ class Event:
                     self.key_ctrl_left = state
                 elif event.key == pygame.K_RCTRL:
                     self.key_ctrl_right = state
+                elif event.key == pygame.K_BACKQUOTE:
+                    self.backquote = state
 
                 # cyfry
                 elif event.key == pygame.K_0: self.key_0 = state
