@@ -3,8 +3,8 @@ import load_images
 import space_ship
 from sky import SpaceBackground
 import enemy_ship
-import time
 import os
+import collisions
 from collections import defaultdict
 from functions import Event
 from enemy_ship import EnemyManager
@@ -18,7 +18,13 @@ FPS = 60
 window = pygame.display.set_mode((1920, 1080), pygame.FULLSCREEN)
 pygame.display.set_caption("Kosmos")
 
+cxx, cyy = window.get_size()
 image_load = load_images.ImageLoad()
+
+# --- KONFIGURACJA ŚWIATA ---
+WORLD_CENTER = pygame.math.Vector2(0, 0)
+WORLD_RADIUS = 10000    # Fizyczna granica
+FADE_ZONE = 2000       # Kiedy zaczyna świecić na czerwono
 
 # --- ŁADOWANIE ZASOBÓW ---
 base_folder = os.path.join(os.getcwd(), "images")
@@ -35,97 +41,102 @@ space_frames = sorted(files_by_ext.get(".png", []))
 audio_files = sorted(files_by_ext.get(".wav", []))
 
 loaded_space_frames = {path: image_load.get_image(path, 40) for path in space_frames}
-space_parts = []
-
-# --- KONFIGURACJA ŚWIATA (LOGICZNA GRANICA) ---
-# WORLD_RADIUS to punkt "odbicia"
-WORLD_RADIUS = 10_000    
-# FADE_ZONE to dystans PRZED krawędzią, gdzie pojawia się światło (1500px)
-FADE_ZONE = 5000
-WORLD_CENTER = pygame.Vector2(5000, 5000) 
-TILE_WIDTH, TILE_HEIGHT = 1920, 1080
 
 # --- OBIEKTY GRY ---
-bg = SpaceBackground(tile_width=TILE_WIDTH, tile_height=TILE_HEIGHT, screen_width=1920, screen_height=1080, num_stars=50)
-player_pos = [WORLD_CENTER.x, WORLD_CENTER.y] 
+bg = SpaceBackground(tile_width=cxx, tile_height=cyy, screen_width=cxx, screen_height=cyy, num_stars=50)
 
-player = space_ship.SpaceShip(loaded_space_frames, space_parts, audio_files, 1920, 1080, player_pos)
-enemy_manager = EnemyManager(loaded_space_frames, player, max_enemies=10)
-event = Event()
+# Startujemy gracza w centrum świata
+player_start_pos = [WORLD_CENTER.x, WORLD_CENTER.y]
+player = space_ship.SpaceShip(loaded_space_frames, [], audio_files, cxx, cyy, player_start_pos)
+enemy_manager = EnemyManager(loaded_space_frames, player, max_enemies=15)
+events_obj = Event()
 
 # --- AUDIO ---
 if os.path.exists("images/audio/star_wars.mp3"):
     pygame.mixer.music.load("images/audio/star_wars.mp3")
-    pygame.mixer.music.set_volume(0.5)
+    pygame.mixer.music.set_volume(0.3)
     pygame.mixer.music.play(-1)
+
+# Inicjalizacja pozycji kamery na graczu
+cam_x, cam_y = player.player_pos.x, player.player_pos.y
 
 # --- PĘTLA GŁÓWNA ---
 running = True
+enemy_manager.spawn_test_targets(5)
 while running:
-    dt = clock.tick(FPS) / 1000
-    event.update()
+    dt = clock.tick(FPS) / 1000.0 
+    
+    events_obj.update() # Przekazujemy pojedynczy event do klasy Event
 
-    if event.system_exit or event.key_escape:
+    if events_obj.key_escape or events_obj.system_exit:
         running = False
 
-    # 1. UPDATE POZYCJI
-    player_pos_raw = player.update(event.key_up, event.key_down, event.key_right, event.key_left, event.key_space, 
-                                  [event.key_1, event.key_2, event.key_3, event.key_4, event.key_5], dt, event.backquote)
-    
-    current_pos = pygame.Vector2(player.player_pos.x, player.player_pos.y)
-    distance = current_pos.distance_to(WORLD_CENTER)
-
-    # 2. LOGIKA ODBICIA OD KOŁA (Fizyczna bariera)
-    if distance > WORLD_RADIUS:
-        normal = (current_pos - WORLD_CENTER).normalize()
-        clamped_pos = WORLD_CENTER + normal * WORLD_RADIUS
-        player.player_pos.x, player.player_pos.y = clamped_pos.x, clamped_pos.y
-        
-        if hasattr(player, 'velocity') and player.velocity.length() > 0:
-            dot = player.velocity.dot(normal)
-            if dot > 0:
-                player.velocity -= 2 * dot * normal * 0.7 # Odbicie
-
+    # 2. AKTUALIZACJA LOGIKI
+    player.update(dt, events_obj)
     enemy_manager.update(dt)
 
-    # 3. RYSOWANIE
-    
-    # Tło (Warstwa 0)
-    bg.draw(window, [player.player_pos.x, player.player_pos.y])
-    
-    camera_x = player.player_pos.x - (TILE_WIDTH // 2)
-    camera_y = player.player_pos.y - (TILE_HEIGHT // 2)
+    # --- FIZYKA BARIERY ŚWIATA ---
+    distance = player.player_pos.distance_to(WORLD_CENTER)
+    if distance > WORLD_RADIUS:
+        # Oblicz wektor odpychający (od środka do gracza)
+        outward_dir = (player.player_pos - WORLD_CENTER).normalize()
+        # Cofnij gracza na krawędź
+        player.player_pos = WORLD_CENTER + outward_dir * WORLD_RADIUS
+        # Odbicie (odwrócenie prędkości i jej osłabienie)
+        player.velocity *= -0.3 
 
-    # Granica energetyczna (Warstwa 1 - pod graczem, nad tłem)
-    # Sprawdzamy, czy gracz jest w strefie 1500px od krawędzi
+    # 3. KOLIZJE
+    if collisions.check_collisions(player, enemy_manager):
+        print("PLAYER DESTROYED")
+        # Tu można dodać logikę restartu
+
+    # 4. MIĘKKA KAMERA (Smoothing)
+    cam_x += (player.player_pos.x - cam_x) * 0.175
+    cam_y += (player.player_pos.y - cam_y) * 0.175
+
+    # Offset dla rysowania obiektów świata
+    screen_off_x = cam_x - (cxx // 2)
+    screen_off_y = cam_y - (cyy // 2)
+
+    # 5. RYSOWANIE
+    # A. Niekończące się tło gwiazd
+    bg.draw(window, (cam_x, cam_y))
+
+    # B. Wizualna bariera (Glow)
     start_warning_dist = WORLD_RADIUS - FADE_ZONE
-    
     if distance > start_warning_dist:
-        # Obliczamy intensywność (0.0 na początku strefy, 1.0 na krawędzi świata)
         intensity = (distance - start_warning_dist) / FADE_ZONE
         intensity = max(0, min(1.0, intensity))
         alpha = int(intensity * 255)
         
-        rel_x = int(WORLD_CENTER.x - camera_x)
-        rel_y = int(WORLD_CENTER.y - camera_y)
+        # Pozycja środka świata na ekranie
+        rel_center_x = int(WORLD_CENTER.x - screen_off_x)
+        rel_center_y = int(WORLD_CENTER.y - screen_off_y)
         
-        # Powierzchnia dla efektów przeźroczystości
-        temp_surface = pygame.Surface((1920, 1080), pygame.SRCALPHA)
-        
-        # Rysujemy 3 warstwy okręgu dla efektu "Glow":
-        # A. Szeroka, słaba poświata (zewnętrzna)
-        pygame.draw.circle(temp_surface, (255, 0, 0, alpha // 4), (rel_x, rel_y), WORLD_RADIUS, 1980)
+        # Rysujemy barierę na warstwie z alpha
+        temp_surface = pygame.Surface((cxx, cyy), pygame.SRCALPHA)
+        # Czerwona poświata krawędziowa
+        pygame.draw.circle(temp_surface, (255, 0, 0, alpha // 4), (rel_center_x, rel_center_y), WORLD_RADIUS, 1980)
+
         # B. Główna bariera (środkowa)
-        pygame.draw.circle(temp_surface, (255, 0, 0, alpha // 2), (rel_x, rel_y), WORLD_RADIUS, 80)
+
+        pygame.draw.circle(temp_surface, (255, 0, 0, alpha // 2), (rel_center_x, rel_center_y), WORLD_RADIUS, 80)
+
         # C. Ostra krawędź (wewnętrzna)
-        pygame.draw.circle(temp_surface, (255, 50, 50, alpha), (rel_x, rel_y), WORLD_RADIUS, 10)
-        
+
+        pygame.draw.circle(temp_surface, (255, 50, 50, alpha), (rel_center_x, rel_center_y), WORLD_RADIUS, 10)
         window.blit(temp_surface, (0, 0))
 
-    # Statki i przeciwnicy (Warstwa 2)
-    player.draw(window)
-    enemy_manager.draw(window, camera_x, camera_y)
+    # C. Przeciwnicy
+    for enemy in enemy_manager.enemies:
+        enemy.draw(window, screen_off_x, screen_off_y)
 
+    # D. Gracz (z poprawką na pozycję kamery)
+    player_draw_x = (cxx // 2) + (player.player_pos.x - cam_x)
+    player_draw_y = (cyy // 2) + (player.player_pos.y - cam_y)
+    player.draw(window, player_draw_x, player_draw_y)
+
+    # 6. ODŚWIEŻENIE
     pygame.display.flip()
 
 pygame.mixer.music.stop()

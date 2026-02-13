@@ -1,26 +1,31 @@
 import pygame
-import math, random, time
+import math
+import random
 
 class Enemy:
-    def __init__(self, ship_frames, player_ref, spawn_radius=1000):
+    def __init__(self, ship_frames, player_ref, spawn_radius=1000, behavior=None):
         self.ship_frames = ship_frames
         self.player_ref = player_ref
 
-        # Typ zachowania: 0 = agresywny, 1 = neutralny, 2 = patrolujący
-        self.base_behavior = random.choice([0, 1, 2])
-        self.behavior_type = self.base_behavior  # aktualny tryb (może się zmieniać)
-        self.aggressive_timer = 0  # ile sekund pozostało trybu agresywnego
+        # Typ zachowania: 0=agresywny, 1=neutralny, 2=patrol, 3=STACJONARNY (TESTOWY)
+        if behavior is not None:
+            self.base_behavior = behavior
+        else:
+            self.base_behavior = random.choice([0, 1, 2])
+            
+        self.behavior_type = self.base_behavior
+        self.aggressive_timer = 0
 
         # Wygląd i statystyki
         enemy_types = [
-            ("images/Enemies/enemyBlack1.png", 8, 60),
-            ("images/Enemies/enemyBlack2.png", 5, 100),
-            ("images/Enemies/enemyBlack3.png", 6, 80)
+            ("images/Enemies/enemyBlack1.png", 1, 1),
+            ("images/Enemies/enemyBlack2.png", 1, 1),
+            ("images/Enemies/enemyBlack3.png", 1, 1)
         ]
         self.texture_path, self.speed, self.hp = random.choice(enemy_types)
         self.image = pygame.transform.rotate(self.ship_frames[self.texture_path], -90)
 
-        # Losowa pozycja wokół gracza
+        # Pozycja
         angle = random.uniform(0, 2 * math.pi)
         distance = random.uniform(spawn_radius * 0.8, spawn_radius)
         self.pos = pygame.math.Vector2(
@@ -31,6 +36,12 @@ class Enemy:
         self.angle = 0
         self.shots = []
         self.weapon_timers = [0.0 for _ in range(5)]
+
+        # --- STATYSTYKI PATROLOWANIA ---
+        self.patrol_angle = random.uniform(0, 360)
+        self.patrol_speed = random.uniform(30, 80)
+        self.patrol_radius = random.uniform(250, 500)
+        self.patrol_direction = random.choice([-1, 1])
 
         # Broń
         self.weapons = [
@@ -44,84 +55,84 @@ class Enemy:
         self.laser_sound.set_volume(0.4)
         self.current_weapon = random.randint(0, len(self.weapons) - 1)
 
-        # Do patrolowania
-        self.patrol_angle = random.uniform(0, 360)
-        self.patrol_speed = random.uniform(0.5, 1.5)
-
     def update(self, dt):
-        # Jeśli aktywny tryb agresji (czasowy)
+        # Statyczny cel (type 3) nie reaguje na alarmy i nie rusza się
+        if self.behavior_type == 3:
+            # Aktualizacja pocisków (jeśli by strzelał, ale tu tylko stoi)
+            self._update_shots()
+            return
+
         if self.aggressive_timer > 0:
             self.aggressive_timer -= dt
             if self.aggressive_timer <= 0:
-                self.behavior_type = self.base_behavior  # wraca do oryginalnego stylu
+                self.behavior_type = self.base_behavior
 
-        # Aktualizacja timerów broni
         for i in range(len(self.weapon_timers)):
             self.weapon_timers[i] += dt
 
-        # --- Zachowanie zależne od trybu ---
+        # Logika ruchu
         if self.behavior_type == 0:
             self._move_toward_player(dt)
             self._maybe_shoot(target_player=True)
-
         elif self.behavior_type == 1:
             move_dir = pygame.math.Vector2(math.cos(math.radians(self.angle)),
-                                           math.sin(math.radians(self.angle)))
+                                         math.sin(math.radians(self.angle)))
             self.pos += move_dir * self.speed * dt * 60
             if random.random() < 0.01:
                 self.angle += random.uniform(-15, 15)
-
         elif self.behavior_type == 2:
             self._patrol_around_player(dt)
 
-        # Aktualizacja pocisków
+        self._update_shots()
+
+    def _update_shots(self):
         for shot in self.shots:
             shot["pos"] += shot["vel"]
+        # Usuwanie dalekich pocisków
+        self.shots = [s for s in self.shots if (s["pos"] - self.pos).length_squared() < 4000000]
 
     def _move_toward_player(self, dt):
         direction = (self.player_ref.player_pos - self.pos)
         if direction.length() != 0:
             direction = direction.normalize()
             self.pos += direction * self.speed * dt * 60
-            dx, dy = direction.x, direction.y
-            self.angle = -math.degrees(math.atan2(dy, dx))
+            self.angle = -math.degrees(math.atan2(direction.y, direction.x))
 
     def _patrol_around_player(self, dt):
-        # Krążenie wokół gracza
         center = self.player_ref.player_pos
-        self.patrol_angle += self.patrol_speed * dt * 60
-        radius = 400
-        self.pos.x = center.x + math.cos(math.radians(self.patrol_angle)) * radius
-        self.pos.y = center.y + math.sin(math.radians(self.patrol_angle)) * radius
-        self.angle = -self.patrol_angle
+        self.patrol_angle += self.patrol_speed * self.patrol_direction * dt
+        rad = math.radians(self.patrol_angle)
+        self.pos.x = center.x + math.cos(rad) * self.patrol_radius
+        self.pos.y = center.y + math.sin(rad) * self.patrol_radius
+        if self.patrol_direction == 1:
+            self.angle = -self.patrol_angle - 90
+        else:
+            self.angle = -self.patrol_angle + 90
 
     def _maybe_shoot(self, target_player=False):
-        if random.random() < 0.02:  # losowa decyzja o strzale
+        if random.random() < 0.02:
             self.shoot(target_player)
 
     def shoot(self, target_player=False):
         weapon = self.weapons[self.current_weapon]
         reload_time = weapon[3]
-
         if self.weapon_timers[self.current_weapon] >= reload_time:
             self.weapon_timers[self.current_weapon] = 0.0
-
-            # Kierunek pocisku
             if target_player:
                 direction = (self.player_ref.player_pos - self.pos)
                 if direction.length() != 0:
                     direction = direction.normalize()
-                angle = -math.degrees(math.atan2(direction.y, direction.x))
+                shot_angle = -math.degrees(math.atan2(direction.y, direction.x))
             else:
                 direction = pygame.math.Vector2(1, 0).rotate(-self.angle)
-                angle = self.angle
+                shot_angle = self.angle
 
             shot = {
                 "pos": self.pos.copy(),
                 "vel": direction * weapon[1],
                 "img": weapon[0],
                 "damage": weapon[2],
-                "dir": angle
+                "dir": shot_angle
             }
             self.shots.append(shot)
             self.laser_sound.play()
@@ -143,37 +154,48 @@ class EnemyManager:
         self.player_ref = player_ref
         self.enemies = []
         self.max_enemies = max_enemies
-        self.alarm_time = 0  # czas trwania alarmu (globalny dla wszystkich)
+        self.alarm_time = 0
+
+    def spawn_test_targets(self, count=5):
+        """Tworzy nieruchome statki blisko gracza do testów strzelania"""
+        for _ in range(count):
+            # behavior=3 oznacza, że się nie ruszają
+            target = Enemy(self.ship_frames, self.player_ref, spawn_radius=400, behavior=3)
+            # Ustawiamy im przodem do góry dla estetyki
+            target.angle = 90
+            self.enemies.append(target)
 
     def update(self, dt):
-        # Generowanie nowych wrogów
+        # Nie spawnuj nowych wrogów, jeśli przekroczymy limit (wliczając testowe)
         if len(self.enemies) < self.max_enemies and random.random() < 0.01:
             self.enemies.append(Enemy(self.ship_frames, self.player_ref))
 
-        # Sprawdzenie dystansu gracza do wrogów — uruchamia alarm
+        player_p = self.player_ref.player_pos
         for enemy in self.enemies:
-            distance = (enemy.pos - self.player_ref.player_pos).length()
-            if distance < 300:  # jeśli gracz podejdzie zbyt blisko
-                self.trigger_alarm(10.0)  # wszyscy agresywni przez 10 sekund
-                break
+            # Tylko ruchomi przeciwnicy (nie typu 3) wyzwalają alarm
+            if enemy.behavior_type != 3:
+                dist_sq = (enemy.pos - player_p).length_squared()
+                if dist_sq < 90000:
+                    self.trigger_alarm(10.0)
+                    break
 
-        # Aktualizacja czasu alarmu
         if self.alarm_time > 0:
             self.alarm_time -= dt
 
-        # Aktualizacja wszystkich wrogów
         for enemy in self.enemies:
-            # Jeśli alarm aktywny, wymusza agresję
-            if self.alarm_time > 0:
+            # Alarm nie wpływa na cele testowe
+            if self.alarm_time > 0 and enemy.behavior_type != 3:
                 enemy.behavior_type = 0
                 enemy.aggressive_timer = self.alarm_time
             enemy.update(dt)
 
     def trigger_alarm(self, duration):
-        self.alarm_time = duration
-        for e in self.enemies:
-            e.behavior_type = 0
-            e.aggressive_timer = duration
+        if self.alarm_time < duration:
+            self.alarm_time = duration
+            for e in self.enemies:
+                if e.behavior_type != 3: # Cele testowe ignorują alarm
+                    e.behavior_type = 0
+                    e.aggressive_timer = duration
 
     def draw(self, window, camera_x, camera_y):
         for enemy in self.enemies:
