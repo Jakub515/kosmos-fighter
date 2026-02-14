@@ -26,67 +26,55 @@ class Collision():
 
         return mask1.overlap(mask2, (offset_x, offset_y))
 
-    def check_collisions(self, player, enemy_manager):
+    def check_collisions(self, player, enemy_manager, shoot_obj):
         """
-        Główna funkcja sprawdzająca wszystkie typy kolizji.
+        Główna funkcja sprawdzająca kolizje przy założeniu, że shoot_obj 
+        zarządza wszystkimi pociskami.
         """
         
-        # 1. KOLIZJA: POCISKI GRACZA -> PRZECIWNICY
-        # Używamy kopii list [:] aby bezpiecznie usuwać obiekty podczas pętli
-        for shot in player.shots[:]:
+        # --- 1. KOLIZJE POCISKÓW ---
+        # Iterujemy po wszystkich pociskach z shoot_obj
+        for shot in shoot_obj.shots[:]:
             shot_hit = False
-            for enemy in enemy_manager.enemies[:]:
-                # Obliczamy dystans (kwadrat dystansu jest szybszy bo nie wymaga pierwiastkowania)
-                dist_sq = (shot["pos"] - enemy.pos).length_squared()
-                
-                # --- POPRAWKA ---
-                # Zamiast maski, używamy hojnego promienia kolizji.
-                # Jeśli statek wroga ma ok. 80-100px szerokości, to promień ~50-60px jest idealny.
-                # Dystans 60px ^ 2 = 3600.
-                HIT_RADIUS_SQ = 60**2 
-
-                if dist_sq < HIT_RADIUS_SQ:
-                    # TRAFIENIE! (Bez sprawdzania masek dla laserów - są zbyt szybkie)
-                    enemy.hp -= shot["damage"]
-                    shot_hit = True
-                    
-                    if enemy.hp <= 0:
-                        if enemy in enemy_manager.enemies:
-                            enemy_manager.enemies.remove(enemy)
-                    
-                    # Przerywamy pętlę wrogów, bo pocisk trafił pierwszego napotkanego
-                    break
             
-            # Jeśli pocisk trafił w cokolwiek, usuwamy go z listy gracza
-            if shot_hit:
-                if shot in player.shots:
-                    player.shots.remove(shot)
+            # A. Pocisk gracza (leci w stronę wrogów)
+            if not shot.get("is_enemy_shot", False):
+                for enemy in enemy_manager.enemies[:]:
+                    dist_sq = (shot["pos"] - enemy.pos).length_squared()
+                    
+                    if dist_sq < 60**2: # Promień trafienia wroga
+                        enemy.hp -= shot["damage"]
+                        shot_hit = True
+                        
+                        if enemy.hp <= 0:
+                            if enemy in enemy_manager.enemies:
+                                enemy_manager.enemies.remove(enemy)
+                        break # Ten pocisk już trafił, kończymy pętlę wrogów
 
-        for enemy in enemy_manager.enemies:
-            for shot in enemy.shots[:]:
+            # B. Pocisk wroga (leci w stronę gracza)
+            else:
                 dist_sq = (shot["pos"] - player.player_pos).length_squared()
                 
-                # Dla gracza też używamy samej odległości, żeby było sprawiedliwie
-                # Promień 35-40px jest wystarczający
-                if dist_sq < 35**2:
+                if dist_sq < 35**2: # Promień trafienia gracza
+                    shot_hit = True
                     if not player.shield_active:
                         player.hp -= shot["damage"]
-                        
-                        if shot in enemy.shots:
-                            enemy.shots.remove(shot)
-                        
-                        if player.hp <= 0:
-                            return True # Sygnał Game Over
-                    
                     else:
-                        self.music_obj.play("images/audio/kenney_sci-fi-sounds/forceField_001.wav", 0.1)
+                        self.music_obj.play("images/audio/kenney_sci-fi-sounds/forceField_001.wav", 0.25)
+                    
+                    if player.hp <= 0:
+                        return True # Game Over
 
-        # 3. KOLIZJA: STATEK -> STATEK (KAMIKAZE)
-        # Tutaj zostawiamy maski, bo statki są duże, powolne i chcemy precyzji przy mijaniu się.
+            # Jeśli pocisk w coś trafił (wroga lub gracza), usuwamy go z globalnej listy
+            if shot_hit:
+                if shot in shoot_obj.shots:
+                    shoot_obj.shots.remove(shot)
+
+        # --- 2. KOLIZJA: STATEK -> STATEK (KAMIKAZE) ---
+        # (Logika pozostaje bez zmian, bo dotyczy fizycznego kontaktu jednostek)
         for enemy in enemy_manager.enemies[:]:
             dist_sq = (player.player_pos - enemy.pos).length_squared()
             
-            # Broad phase: sprawdzamy maski tylko gdy statki są blisko (< 80px)
             if dist_sq < 80**2:
                 hit = self.check_mask_collision(
                     player.actual_frame, player.player_pos, player.angle,
@@ -94,18 +82,15 @@ class Collision():
                 )
                 
                 if hit:
-                    # Efekt fizyczny: odepchnięcie
+                    # Fizyka odbicia
                     push_dir = (player.player_pos - enemy.pos)
-                    if push_dir.length() > 0:
-                        push_dir = push_dir.normalize()
-                    else:
-                        push_dir = pygame.math.Vector2(1, 0) # Zabezpieczenie przed wektorem zero
+                    push_dir = push_dir.normalize() if push_dir.length() > 0 else pygame.math.Vector2(1, 0)
                         
                     player.player_pos += push_dir * 25
-                    player.velocity *= -0.5 # Nagłe zatrzymanie/odbicie
+                    player.velocity *= -0.5
                     
                     player.hp -= 15
-                    enemy.hp -= 100 # Kolizja niszczy wroga natychmiast
+                    enemy.hp -= 100 
                     
                     if enemy.hp <= 0:
                         if enemy in enemy_manager.enemies:

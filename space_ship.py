@@ -2,7 +2,8 @@ import pygame
 import math
 
 class SpaceShip():
-    def __init__(self, ship_frames, ship_parts, ship_audio_path, cxx, cyy, player_pos, music):
+    def __init__(self, ship_frames, ship_parts, ship_audio_path, cxx, cyy, player_pos, music, shoot_obj):
+        self.shoot_obj = shoot_obj
         self.music_obj = music
         self.ship_frames = ship_frames
         self.ship_parts = ship_parts
@@ -64,7 +65,6 @@ class SpaceShip():
             [self.ship_frames["images/Lasers/laserBlue16.png"], 80, 1,   0.1]
         ]
         self.weapon_timers = [0.0 for _ in self.weapons]
-        self.shots = []
         self.current_weapon = 0
 
     def _create_placeholder_shield(self, radius, color):
@@ -136,7 +136,7 @@ class SpaceShip():
             if self.weapon_timers[self.current_weapon] >= weapon_data[3]:
                 self.weapon_timers[self.current_weapon] = 0.0
                 shot_vel = forward_direction * weapon_data[1]
-                self.shots.append({
+                self.shoot_obj.create_missle({
                     "pos": self.player_pos.copy(),
                     "vel": shot_vel,
                     "img": weapon_data[0],
@@ -145,25 +145,12 @@ class SpaceShip():
                 })
                 self.music_obj.play("images/audio/sfx_laser1.wav", 0.7)
 
-        # 6. AKTUALIZACJA POCISKÓW
-        for shot in self.shots:
-            shot["pos"] += shot["vel"]
-        
-        if len(self.shots) > 50: self.shots.pop(0)
-
         return [self.player_pos.x, self.player_pos.y]
 
     def draw(self, window, draw_x, draw_y):
-        offset_x = self.player_pos.x - draw_x
-        offset_y = self.player_pos.y - draw_y
+        self.offset_x = self.player_pos.x - draw_x
+        self.offset_y = self.player_pos.y - draw_y
 
-        # --- 1. POCISKI ---
-        for shot in self.shots:
-            s_x = shot["pos"].x - offset_x
-            s_y = shot["pos"].y - offset_y
-            rotated_laser = pygame.transform.rotate(shot["img"], shot["dir"] + 90)
-            laser_rect = rotated_laser.get_rect(center=(int(s_x), int(s_y)))
-            window.blit(rotated_laser, laser_rect)
 
         # --- 2. OGIEŃ ---
         if self.is_thrusting:
