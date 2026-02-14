@@ -8,10 +8,10 @@ import collisions
 from collections import defaultdict
 from functions import Event
 from enemy_ship import EnemyManager
+import music
 
 # --- INICJALIZACJA ---
 pygame.init()
-pygame.mixer.init()
 
 clock = pygame.time.Clock()
 FPS = 60
@@ -42,20 +42,19 @@ audio_files = sorted(files_by_ext.get(".wav", []))
 
 loaded_space_frames = {path: image_load.get_image(path, 40) for path in space_frames}
 
+music_obj = music.MusicManager(audio_files)
+
 # --- OBIEKTY GRY ---
 bg = SpaceBackground(tile_width=cxx, tile_height=cyy, screen_width=cxx, screen_height=cyy, num_stars=50)
 
 # Startujemy gracza w centrum świata
 player_start_pos = [WORLD_CENTER.x, WORLD_CENTER.y]
-player = space_ship.SpaceShip(loaded_space_frames, [], audio_files, cxx, cyy, player_start_pos)
-enemy_manager = EnemyManager(loaded_space_frames, player, max_enemies=15)
+player = space_ship.SpaceShip(loaded_space_frames, [], audio_files, cxx, cyy, player_start_pos, music_obj)
+enemy_manager = EnemyManager(loaded_space_frames, player, music_obj, max_enemies=15)
 events_obj = Event()
+colision_obj = collisions.Collision(music_obj)
 
-# --- AUDIO ---
-if os.path.exists("images/audio/star_wars.mp3"):
-    pygame.mixer.music.load("images/audio/star_wars.mp3")
-    pygame.mixer.music.set_volume(0.3)
-    pygame.mixer.music.play(-1)
+
 
 # Inicjalizacja pozycji kamery na graczu
 cam_x, cam_y = player.player_pos.x, player.player_pos.y
@@ -69,7 +68,9 @@ while running:
     events_obj.update() # Przekazujemy pojedynczy event do klasy Event
 
     if events_obj.key_escape or events_obj.system_exit:
+        music_obj.at_exit()
         running = False
+        break
 
     # 2. AKTUALIZACJA LOGIKI
     player.update(dt, events_obj)
@@ -86,7 +87,7 @@ while running:
         player.velocity *= -0.3 
 
     # 3. KOLIZJE
-    if collisions.check_collisions(player, enemy_manager):
+    if colision_obj.check_collisions(player, enemy_manager):
         print("PLAYER DESTROYED")
         # Tu można dodać logikę restartu
 
@@ -139,5 +140,4 @@ while running:
     # 6. ODŚWIEŻENIE
     pygame.display.flip()
 
-pygame.mixer.music.stop()
 pygame.quit()

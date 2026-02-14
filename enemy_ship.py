@@ -3,7 +3,8 @@ import math
 import random
 
 class Enemy:
-    def __init__(self, ship_frames, player_ref, spawn_radius=1000, behavior=None):
+    def __init__(self, ship_frames, player_ref, music_obj, spawn_radius=1000, behavior=None):
+        self.music_obj = music_obj
         self.ship_frames = ship_frames
         self.player_ref = player_ref
 
@@ -18,9 +19,9 @@ class Enemy:
 
         # Wygląd i statystyki
         enemy_types = [
-            ("images/Enemies/enemyBlack1.png", 1, 1),
-            ("images/Enemies/enemyBlack2.png", 1, 1),
-            ("images/Enemies/enemyBlack3.png", 1, 1)
+            ("images/Enemies/enemyBlack1.png", 13, 1),
+            ("images/Enemies/enemyBlack2.png", 12, 1),
+            ("images/Enemies/enemyBlack3.png", 11, 1)
         ]
         self.texture_path, self.speed, self.hp = random.choice(enemy_types)
         self.image = pygame.transform.rotate(self.ship_frames[self.texture_path], -90)
@@ -51,8 +52,7 @@ class Enemy:
             [self.ship_frames["images/Lasers/laserRed04.png"], 70, 1, 0.3],
             [self.ship_frames["images/Lasers/laserRed05.png"], 80, 0.5, 0.2],
         ]
-        self.laser_sound = pygame.mixer.Sound("images/audio/sfx_laser2.wav")
-        self.laser_sound.set_volume(0.4)
+        
         self.current_weapon = random.randint(0, len(self.weapons) - 1)
 
     def update(self, dt):
@@ -135,7 +135,7 @@ class Enemy:
                 "dir": shot_angle
             }
             self.shots.append(shot)
-            self.laser_sound.play()
+            self.music_obj.play("images/audio/sfx_laser2.wav", 0.4)
 
     def draw(self, window, camera_x, camera_y):
         rotated = pygame.transform.rotate(self.image, self.angle)
@@ -149,18 +149,19 @@ class Enemy:
 
 
 class EnemyManager:
-    def __init__(self, ship_frames, player_ref, max_enemies=10):
+    def __init__(self, ship_frames, player_ref, music_obj, max_enemies):
+        self.music_obj = music_obj
         self.ship_frames = ship_frames
         self.player_ref = player_ref
         self.enemies = []
         self.max_enemies = max_enemies
         self.alarm_time = 0
 
-    def spawn_test_targets(self, count=5):
+    def spawn_test_targets(self, count=500):
         """Tworzy nieruchome statki blisko gracza do testów strzelania"""
         for _ in range(count):
             # behavior=3 oznacza, że się nie ruszają
-            target = Enemy(self.ship_frames, self.player_ref, spawn_radius=400, behavior=3)
+            target = Enemy(self.ship_frames, self.player_ref, self.music_obj, spawn_radius=400, behavior=3)
             # Ustawiamy im przodem do góry dla estetyki
             target.angle = 90
             self.enemies.append(target)
@@ -168,7 +169,7 @@ class EnemyManager:
     def update(self, dt):
         # Nie spawnuj nowych wrogów, jeśli przekroczymy limit (wliczając testowe)
         if len(self.enemies) < self.max_enemies and random.random() < 0.01:
-            self.enemies.append(Enemy(self.ship_frames, self.player_ref))
+            self.enemies.append(Enemy(self.ship_frames, self.player_ref, self.music_obj))
 
         player_p = self.player_ref.player_pos
         for enemy in self.enemies:
