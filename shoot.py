@@ -3,6 +3,24 @@ import pygame
 class Shoot():
     def __init__(self):
         self.shots = []
+        """self.explosion_frames = [
+            self.ship_frames["images/dym/tile_00.png"],
+            self.ship_frames["images/dym/tile_01.png"],
+            self.ship_frames["images/dym/tile_02.png"],
+            self.ship_frames["images/dym/tile_03.png"],
+            self.ship_frames["images/dym/tile_04.png"],
+            self.ship_frames["images/dym/tile_05.png"],
+            self.ship_frames["images/dym/tile_06.png"],
+            self.ship_frames["images/dym/tile_07.png"],
+            self.ship_frames["images/dym/tile_08.png"],
+            self.ship_frames["images/dym/tile_09.png"],
+            self.ship_frames["images/dym/tile_10.png"],
+            self.ship_frames["images/dym/tile_11.png"],
+            self.ship_frames["images/dym/tile_12.png"],
+            self.ship_frames["images/dym/tile_13.png"],
+            self.ship_frames["images/dym/tile_14.png"],
+            self.ship_frames["images/dym/tile_15.png"]
+        ]"""
 
     def create_missle(self, data):
         self.shots.append(data)
