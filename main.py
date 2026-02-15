@@ -9,6 +9,7 @@ from functions import Event
 from enemy_ship import EnemyManager
 import music
 import shoot
+import radar
 
 # --- INICJALIZACJA ---
 pygame.init()
@@ -58,6 +59,8 @@ player = space_ship.SpaceShip(loaded_space_frames, [], audio_files, cxx, cyy, pl
 enemy_manager = EnemyManager(loaded_space_frames, player, music_obj, 20, shoot_obj)
 events_obj = Event()
 colision_obj = collisions.Collision(music_obj)
+radar_obj = radar.Radar(cxx,cyy,radar_size=200,world_radius=WORLD_RADIUS,zoom_radius=4000)
+
 
 # Inicjalizacja pozycji kamery
 cam_x, cam_y = player.player_pos.x, player.player_pos.y
@@ -139,6 +142,7 @@ while running:
     player_draw_x = (cxx // 2) + (player.player_pos.x - cam_x)
     player_draw_y = (cyy // 2) + (player.player_pos.y - cam_y)
     player.draw(window, player_draw_x, player_draw_y)
+    radar_obj.draw(window, player, enemy_manager)
 
     # 6. ODŚWIEŻENIE
     pygame.display.flip()
