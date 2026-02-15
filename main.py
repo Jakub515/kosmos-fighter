@@ -49,7 +49,7 @@ music_obj = music.MusicManager(audio_files)
 
 # --- OBIEKTY GRY ---
 bg = SpaceBackground(tile_width=cxx, tile_height=cyy, screen_width=cxx, screen_height=cyy, num_stars=50)
-shoot_obj = shoot.Shoot()
+shoot_obj = shoot.Shoot(loaded_space_frames)
 
 # Startujemy gracza w centrum świata
 player_start_pos = [WORLD_CENTER.x, WORLD_CENTER.y]

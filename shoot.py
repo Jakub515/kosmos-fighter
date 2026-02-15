@@ -1,39 +1,68 @@
 import pygame
+import math
+import time
 
 class Shoot():
-    def __init__(self):
+    def __init__(self, images):
+        self.images = images
         self.shots = []
-        """self.explosion_frames = [
-            self.ship_frames["images/dym/tile_00.png"],
-            self.ship_frames["images/dym/tile_01.png"],
-            self.ship_frames["images/dym/tile_02.png"],
-            self.ship_frames["images/dym/tile_03.png"],
-            self.ship_frames["images/dym/tile_04.png"],
-            self.ship_frames["images/dym/tile_05.png"],
-            self.ship_frames["images/dym/tile_06.png"],
-            self.ship_frames["images/dym/tile_07.png"],
-            self.ship_frames["images/dym/tile_08.png"],
-            self.ship_frames["images/dym/tile_09.png"],
-            self.ship_frames["images/dym/tile_10.png"],
-            self.ship_frames["images/dym/tile_11.png"],
-            self.ship_frames["images/dym/tile_12.png"],
-            self.ship_frames["images/dym/tile_13.png"],
-            self.ship_frames["images/dym/tile_14.png"],
-            self.ship_frames["images/dym/tile_15.png"]
-        ]"""
+        # Ładowanie klatek eksplozji
+        self.explosion_frames = [
+            self.images[f"images/dym/Explosion/tile_{str(i).zfill(2)}.png"] for i in range(16)
+        ]
 
     def create_missle(self, data):
+        # Dodajemy czas powstania i początkowy indeks klatki animacji
+        data["spawn_time"] = time.time()
+        data["is_exploding"] = False
+        data["frame_index"] = 0
         self.shots.append(data)
 
     def update(self):
-        for shot in self.shots:
-            shot["pos"] += shot["vel"]
-        if len(self.shots) > 50: self.shots.pop(0)        
+        current_time = time.time()
+        
+        for shot in self.shots[:]:  # Iterujemy po kopii listy, aby móc usuwać elementy
+            # 1. Sprawdzenie czasu życia (1 sekunda do wybuchu)
+            if (not shot["is_exploding"] and current_time - shot["spawn_time"] > 1):
+                if shot.get("rocket"):
+                    shot["is_exploding"] = True
+                else:
+                    self.shots.remove(shot)
+                    continue
+
+            # 2. Fizyka pocisku
+            if not shot["is_exploding"]:
+                if shot.get("rocket"):
+                    # Przyspieszanie: dodajemy wektor kierunku pomnożony przez siłę ciągu
+                    # Zakładamy, że shot["dir"] to kąt w stopniach
+                    rad = math.radians(shot["dir"])
+                    acceleration = 0.1  # Siła przyspieszenia pocisku
+                    shot["vel"].x += math.cos(rad) * acceleration
+                    shot["vel"].y -= math.sin(rad) * acceleration
+                
+                shot["pos"] += shot["vel"]
+            else:
+                # 3. Logika animacji eksplozji
+                shot["frame_index"] += 0.5  # Szybkość animacji dymu
+                if shot["frame_index"] >= len(self.explosion_frames):
+                    self.shots.remove(shot)
+
+        # Ograniczenie liczby pocisków
+        if len(self.shots) > 150:
+            self.shots.pop(0)
 
     def draw(self, window, offset_x, offset_y):
         for shot in self.shots:
             s_x = shot["pos"].x - offset_x
             s_y = shot["pos"].y - offset_y
-            rotated_laser = pygame.transform.rotate(shot["img"], shot["dir"] + 90)
-            laser_rect = rotated_laser.get_rect(center=(int(s_x), int(s_y)))
-            window.blit(rotated_laser, laser_rect)
+            
+            if not shot["is_exploding"]:
+                # Rysowanie lecącego pocisku
+                rotated_laser = pygame.transform.rotate(shot["img"], shot["dir"] + 90)
+                laser_rect = rotated_laser.get_rect(center=(int(s_x), int(s_y)))
+                window.blit(rotated_laser, laser_rect)
+            else:
+                # Rysowanie klatki eksplozji
+                frame = self.explosion_frames[int(shot["frame_index"])]
+                rect = frame.get_rect(center=(int(s_x), int(s_y)))
+                window.blit(frame, rect)
