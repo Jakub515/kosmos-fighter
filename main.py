@@ -148,7 +148,7 @@ while running:
     player_draw_x = (cxx // 2) + (player.player_pos.x - cam_x)
     player_draw_y = (cyy // 2) + (player.player_pos.y - cam_y)
     player.draw(window, player_draw_x, player_draw_y)
-    radar_obj.draw(window, player, enemy_manager)
+    radar_obj.draw(window, player, enemy_manager, dt)
     game_controller.draw(window)
 
     # 6. ODŚWIEŻENIE
