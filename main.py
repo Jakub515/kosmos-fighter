@@ -14,6 +14,7 @@ import ui
 
 # --- INICJALIZACJA ---
 pygame.init()
+pygame.font.init()
 
 clock = pygame.time.Clock()
 FPS = 60
@@ -153,4 +154,5 @@ while running:
     # 6. ODŚWIEŻENIE
     pygame.display.flip()
 
+pygame.font.quit()
 pygame.quit()

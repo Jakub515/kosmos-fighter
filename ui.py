@@ -72,7 +72,7 @@ class UI:
         self.event_obj = event_obj
         self.cxx = screen_width
         self.cyy = screen_height
-        self.font = pygame.font.SysFont("Arial", 14, bold=True)
+        self.font = pygame.font.Font("fonts/JetBrainsMono-Italic-VariableFont_wght.ttf", 16)#pygame.font.SysFont("Arial", 14, bold=True)
 
         # Inicjalizacja list broni z obrazkami i parametrami
         # Zakładamy, że images to słownik z załadowanymi Surface'ami
