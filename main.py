@@ -10,6 +10,7 @@ from enemy_ship import EnemyManager
 import music
 import shoot
 import radar
+import ui
 
 # --- INICJALIZACJA ---
 pygame.init()
@@ -44,6 +45,7 @@ audio_files = sorted(files_by_ext.get(".wav", []))
 
 # Ładowanie obrazów z optymalizacją (convert_alpha wywoływane w ImageLoad)
 loaded_space_frames = {path: image_load.get_image(path, 40) for path in space_frames}
+loaded_space_frames_full = {path: image_load.get_image(path, 100) for path in space_frames}
 
 music_obj = music.MusicManager(audio_files)
 
@@ -61,6 +63,7 @@ events_obj = Event()
 colision_obj = collisions.Collision(music_obj)
 radar_obj = radar.Radar(cxx,cyy,radar_size=200,world_radius=WORLD_RADIUS,zoom_radius=4000)
 
+game_controller = ui.GameController(events_obj, player, cxx, cyy, loaded_space_frames_full)
 
 # Inicjalizacja pozycji kamery
 cam_x, cam_y = player.player_pos.x, player.player_pos.y
@@ -82,8 +85,10 @@ while running:
         running = False
         break
 
+    game_controller.update(dt)
+
     # 2. AKTUALIZACJA LOGIKI
-    player.update(dt, events_obj)
+    player.update(dt)
     enemy_manager.update(dt)
     shoot_obj.update()
 
@@ -143,6 +148,7 @@ while running:
     player_draw_y = (cyy // 2) + (player.player_pos.y - cam_y)
     player.draw(window, player_draw_x, player_draw_y)
     radar_obj.draw(window, player, enemy_manager)
+    game_controller.draw(window)
 
     # 6. ODŚWIEŻENIE
     pygame.display.flip()

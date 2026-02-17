@@ -20,7 +20,12 @@ class SpaceShip():
             self.engine_image = pygame.Surface((20, 40), pygame.SRCALPHA)
             pygame.draw.ellipse(self.engine_image, (255, 150, 0), (0,0,20,40))
 
+        # --- FLAGI STEROWANIA (Zamiast czytania event_obj) ---
         self.is_thrusting = False
+        self.is_braking = False
+        self.is_boosting = False
+        self.rotation_dir = 0  # 0: brak, 1: lewo, -1: prawo
+        self.want_to_shoot = False
 
         # --- OSŁONY ---
         try:
@@ -81,75 +86,74 @@ class SpaceShip():
         
         self.current_weapon = 0
         self.active_set = 1  # 1: Lasery, 2: Rakiety
-        self.ctrl_pressed_last_frame = False # Do wykrywania pojedynczego kliknięcia
 
     def _create_placeholder_shield(self, radius, color):
         s = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
         pygame.draw.circle(s, color, (radius, radius), radius, 3)
         return s
 
-    def activate_shield(self, timer):
+    # --- NOWE METODY INTERFEJSU (Wywoływane przez Controller/Main) ---
+
+    def thrust(self, active, boost=False):
+        self.is_thrusting = active
+        self.is_boosting = boost
+
+    def rotate(self, direction):
+        """direction: 1 dla lewo, -1 dla prawo, 0 dla stop"""
+        self.rotation_dir = direction
+
+    def brake(self, active):
+        self.is_braking = active
+
+    def fire(self, active):
+        self.want_to_shoot = active
+
+    def switch_weapon_set(self):
+        self.active_set = 2 if self.active_set == 1 else 1
+        self.current_weapon = 0
+
+    def select_weapon(self, index):
+        if self.active_set == 1 and index < len(self.weapons):
+            self.current_weapon = index
+        elif self.active_set == 2 and index < len(self.weapons_2):
+            self.current_weapon = index
+
+    def activate_shield(self, timer=250):
         self.shield_active = True
         self.shield_timer = timer
 
-    def update(self, dt, event_obj):
-        # 1. LOGIKA PRZEŁĄCZANIA ZESTAWÓW (TOGGLE CTRL)
-        # Sprawdzamy czy CTRL został właśnie naciśnięty
-        if event_obj.key_ctrl_left and not self.ctrl_pressed_last_frame:
-            if self.active_set == 1:
-                self.active_set = 2
-                self.current_weapon = 0 # Opcjonalnie resetuj wybór przy zmianie trybu
-            else:
-                self.active_set = 1
-                self.current_weapon = 0
+    # --- ZMODYFIKOWANY UPDATE (Bez event_obj) ---
+
+    def update(self, dt):
+        # 1. ROTACJA
+        if self.rotation_dir == 1:
+            self.angular_velocity += self.angular_acceleration
+        elif self.rotation_dir == -1:
+            self.angular_velocity -= self.angular_acceleration
         
-        self.ctrl_pressed_last_frame = event_obj.key_ctrl_left
-
-        # ZMIANA KONKRETNEJ BRONI W RAMACH ZESTAWU
-        num_keys = (
-            event_obj.key_1, event_obj.key_2, event_obj.key_3, 
-            event_obj.key_4, event_obj.key_5, event_obj.key_6, 
-            event_obj.key_7, event_obj.key_8, event_obj.key_9
-        )
-
-        if self.active_set == 1:
-            # Tryb Laserów (1-5)
-            for index, pressed in enumerate(num_keys[:5]):
-                if pressed: self.current_weapon = index
-        else:
-            # Tryb Rakiet (1-9)
-            for index, pressed in enumerate(num_keys):
-                if pressed: self.current_weapon = index
-
-        # --- RESZTA MECHANIKI ---
-        if event_obj.key_s:
-            self.activate_shield(250)
-
-        if event_obj.key_left: self.angular_velocity += self.angular_acceleration
-        if event_obj.key_right: self.angular_velocity -= self.angular_acceleration
         self.angular_velocity *= self.angular_friction
-        
         if abs(self.angular_velocity) > self.max_angular_velocity:
             self.angular_velocity = math.copysign(self.max_angular_velocity, self.angular_velocity)
         
         self.angle += self.angular_velocity
 
+        # 2. RUCH LINIOWY
         rad = math.radians(-self.angle)
         forward_direction = pygame.math.Vector2(math.cos(rad), math.sin(rad))
 
-        self.is_thrusting = event_obj.key_up
         if self.is_thrusting:
-            accel = self.thrust_power + (1.5 if event_obj.backquote else 0)
+            accel = self.thrust_power + (1.5 if self.is_boosting else 0)
             self.velocity += forward_direction * accel
         
-        if event_obj.key_down:
+        if self.is_braking:
             if self.velocity.length() > 1.0:
                 self.velocity *= self.braking_force
             else:
                 self.velocity -= forward_direction * (self.thrust_power * 0.4)
 
+        # 3. TARCIE I LIMIT PRĘDKOŚCI
         current_speed = self.velocity.length()
-        if event_obj.backquote:
+        if self.is_boosting:
             if current_speed > self.boost_speed: self.velocity.scale_to_length(self.boost_speed)
         else:
             if current_speed > self.max_speed: self.velocity *= self.speed_decay
@@ -158,16 +162,17 @@ class SpaceShip():
         if current_speed < 0.1: self.velocity = pygame.math.Vector2(0, 0)
         self.player_pos += self.velocity
 
+        # 4. OSŁONY
         if self.shield_active:
             self.shield_angle += 25 
             self.shield_timer -= 1
             if self.shield_timer <= 0: self.shield_active = False
 
-        # --- STRZELANIE ---
+        # 5. STRZELANIE
         for i in range(len(self.weapon_timers)): self.weapon_timers[i] += dt
         for i in range(len(self.weapon_timers_2)): self.weapon_timers_2[i] += dt
 
-        if event_obj.key_space:
+        if self.want_to_shoot:
             if self.active_set == 1:
                 weapon_data = self.weapons[self.current_weapon]
                 if self.weapon_timers[self.current_weapon] >= weapon_data[3]:
@@ -186,13 +191,14 @@ class SpaceShip():
                     self.shoot_obj.create_missle({
                         "pos": self.player_pos.copy(), "vel": shot_vel, "img": weapon_data[0],
                         "damage": weapon_data[2], "dir": self.angle,
-                        "rocket": True # Argument ukryty
+                        "rocket": True 
                     })
                     self.music_obj.play("images/audio/sfx_laser1.wav", 0.7)
 
         return [self.player_pos.x, self.player_pos.y]
 
     def draw(self, window, draw_x, draw_y):
+        # Rysowanie pozostaje bez zmian
         if self.is_thrusting:
             fire_rot = pygame.transform.rotate(self.engine_image, self.angle)
             fire_offset = pygame.math.Vector2(-40, 0).rotate(-self.angle)
