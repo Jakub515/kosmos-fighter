@@ -22,8 +22,8 @@ class Shoot():
         current_time = time.time()
         
         for shot in self.shots[:]:  # Iterujemy po kopii listy, aby móc usuwać elementy
-            # 1. Sprawdzenie czasu życia (1 sekunda do wybuchu)
-            if (not shot["is_exploding"] and current_time - shot["spawn_time"] > 1):
+            # 1. Sprawdzenie czasu życia (2 sekunda do wybuchu)
+            if (not shot["is_exploding"] and current_time - shot["spawn_time"] > 2):
                 if shot.get("rocket"):
                     shot["is_exploding"] = True
                 else:
@@ -36,7 +36,7 @@ class Shoot():
                     # Przyspieszanie: dodajemy wektor kierunku pomnożony przez siłę ciągu
                     # Zakładamy, że shot["dir"] to kąt w stopniach
                     rad = math.radians(shot["dir"])
-                    acceleration = 0.1  # Siła przyspieszenia pocisku
+                    acceleration = 1  # Siła przyspieszenia pocisku
                     shot["vel"].x += math.cos(rad) * acceleration
                     shot["vel"].y -= math.sin(rad) * acceleration
                 

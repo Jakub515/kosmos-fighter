@@ -70,15 +70,15 @@ class SpaceShip():
             [self.ship_frames["images/Lasers/laserBlue16.png"], 80, 1,   0.1]
         ]
         self.weapons_2 = [
-            [self.ship_frames["images/Missiles/spaceMissiles_001.png"], 40, 5,   3],
-            [self.ship_frames["images/Missiles/spaceMissiles_004.png"], 40, 10,  3],
-            [self.ship_frames["images/Missiles/spaceMissiles_007.png"], 40, 15,  3],
-            [self.ship_frames["images/Missiles/spaceMissiles_010.png"], 40, 20,  3],
-            [self.ship_frames["images/Missiles/spaceMissiles_013.png"], 40, 25,  3],
-            [self.ship_frames["images/Missiles/spaceMissiles_016.png"], 40, 30,  3],
-            [self.ship_frames["images/Missiles/spaceMissiles_019.png"], 40, 35,  3],
-            [self.ship_frames["images/Missiles/spaceMissiles_022.png"], 40, 40,  3],
-            [self.ship_frames["images/Missiles/spaceMissiles_025.png"], 40, 45,  3]
+            [self.ship_frames["images/Missiles/spaceMissiles_001.png"], 1.5, 5,   3],
+            [self.ship_frames["images/Missiles/spaceMissiles_004.png"], 1.5, 10,  3],
+            [self.ship_frames["images/Missiles/spaceMissiles_007.png"], 1.5, 15,  3],
+            [self.ship_frames["images/Missiles/spaceMissiles_010.png"], 1.5, 20,  3],
+            [self.ship_frames["images/Missiles/spaceMissiles_013.png"], 1.5, 25,  3],
+            [self.ship_frames["images/Missiles/spaceMissiles_016.png"], 1.5, 30,  3],
+            [self.ship_frames["images/Missiles/spaceMissiles_019.png"], 1.5, 35,  3],
+            [self.ship_frames["images/Missiles/spaceMissiles_022.png"], 1.5, 40,  3],
+            [self.ship_frames["images/Missiles/spaceMissiles_025.png"], 1.5, 45,  3]
         ]
         
         self.weapon_timers = [0.0 for _ in self.weapons]

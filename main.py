@@ -11,6 +11,7 @@ import music
 import shoot
 import radar
 import ui
+from asteroids import AsteroidManager
 
 # --- INICJALIZACJA ---
 pygame.init()
@@ -71,6 +72,9 @@ cam_x, cam_y = player.player_pos.x, player.player_pos.y
 
 # --- PĘTLA GŁÓWNA ---
 running = True
+
+asteroid_manager = AsteroidManager(loaded_space_frames, WORLD_CENTER, WORLD_RADIUS, count=40)
+
 # Spawnujemy cele testowe (nieruchome, zoptymalizowane pod kątem update)
 # enemy_manager.spawn_test_targets(5)
 
@@ -91,6 +95,7 @@ while running:
     # 2. AKTUALIZACJA LOGIKI
     player.update(dt)
     enemy_manager.update(dt)
+    asteroid_manager.update(dt, player)
     shoot_obj.update()
 
     # --- FIZYKA BARIERY ŚWIATA ---
@@ -141,6 +146,7 @@ while running:
     shoot_obj.draw(window, screen_off_x, screen_off_y)
 
     # D. Przeciwnicy
+    asteroid_manager.draw(window, screen_off_x, screen_off_y)
     enemy_manager.draw(window, screen_off_x, screen_off_y)
 
     # E. Gracz
