@@ -27,16 +27,16 @@ class Enemy:
             self.player_ref.player_pos.y + math.sin(angle) * distance
         )
         
-        # --- FIZYKA IDENTYCZNA Z PLAYEREM ---
+        # --- FIZYKA ---
         self.velocity = pygame.math.Vector2(0, 0)
         self.angle = random.uniform(0, 360)
-        self.angular_velocity = 0                  
-        self.angular_acceleration = 0.4 
-        self.angular_friction = 0.92    
-        self.max_angular_velocity = 6.0            
-        self.max_speed = 10.0                      
-        self.linear_friction = 0.995    
-        self.speed_decay = 0.98                    
+        self.angular_velocity = 0
+        self.angular_acceleration = 0.4
+        self.angular_friction = 0.92
+        self.max_angular_velocity = 6.0
+        self.max_speed = 10.0
+        self.linear_friction = 0.995
+        self.speed_decay = 0.98
 
         self.weapons = [
             [self.ship_frames["images/Lasers/laserRed01.png"], 40, 5, 0.6],
@@ -49,7 +49,7 @@ class Enemy:
         self.weapon_timers = [0.0 for _ in range(len(self.weapons))]
         
         self.is_thrusting = False
-        self.avoidance_side = random.choice([-1, 1]) 
+        self.avoidance_side = random.choice([-1, 1])
         self.logic_timer = random.uniform(0, 0.1)
 
     def update(self, dt):
@@ -65,31 +65,25 @@ class Enemy:
         dist_to_player = dir_to_player.length()
         if dist_to_player == 0: dist_to_player = 1
         
-        # Kąt bazowy na gracza
         target_angle = -math.degrees(math.atan2(dir_to_player.y, dir_to_player.x))
         base_target_angle = target_angle
 
-        # --- 2. AKTYWNE UNIKANIE INNYCH BOTÓW (Priority One) ---
+        # --- 2. AKTYWNE UNIKANIE INNYCH BOTÓW ---
         avoid_neighbor_vector = pygame.math.Vector2(0, 0)
         too_close_to_someone = False
         
         for other in self.manager.enemies:
             if other is self: continue
-            
             dist_to_other = self.pos.distance_to(other.pos)
-            if dist_to_other < 180: # Zwiększony dystans bezpieczeństwa
+            if dist_to_other < 180: 
                 too_close_to_someone = True
-                # Wektor ucieczki od kolegi
                 diff = self.pos - other.pos
                 avoid_neighbor_vector += diff.normalize() * (200 - dist_to_other)
 
-        # Jeśli bot jest za blisko kogoś, priorytetem jest zmiana kąta, by uciec
         if too_close_to_someone:
             avoid_angle = -math.degrees(math.atan2(avoid_neighbor_vector.y, avoid_neighbor_vector.x))
-            # Bot miesza kierunek na gracza z kierunkiem ucieczki od kolizji
-            target_angle = avoid_angle 
+            target_angle = avoid_angle
         else:
-            # Jeśli droga wolna, krążymy wokół gracza
             if dist_to_player < 450:
                 target_angle = base_target_angle + (40 * self.avoidance_side)
 
@@ -103,7 +97,7 @@ class Enemy:
         if dist_to_player < 280 and collision_danger_player:
             target_angle = base_target_angle + (90 * self.avoidance_side)
 
-        # --- 4. FIZYKA OBROTU (Angular Physics) ---
+        # --- 4. FIZYKA OBROTU ---
         angle_diff = (target_angle - self.angle + 180) % 360 - 180
 
         if angle_diff > 4:
@@ -117,15 +111,13 @@ class Enemy:
         
         self.angle += self.angular_velocity
 
-        # --- 5. CIĄG (Thrust - Napęd Fizyczny) ---
+        # --- 5. CIĄG ---
         rad = math.radians(-self.angle)
         forward_dir = pygame.math.Vector2(math.cos(rad), math.sin(rad))
 
         self.is_thrusting = False
         
-        # Klucz: Bot daje gazu, żeby "wypchnąć" się z tłumu
         if too_close_to_someone:
-            # Daje gazu, żeby uciec od kolegi, jeśli w miarę celuje w stronę wolnej przestrzeni
             if abs(angle_diff) < 90:
                 self.is_thrusting = True
         elif (collision_danger_player and dist_to_player < 400):
@@ -137,7 +129,7 @@ class Enemy:
         if self.is_thrusting:
             self.velocity += forward_dir * self.thrust_power
 
-        # --- 6. BEZWŁADNOŚĆ ---
+        # --- 6. BEZWŁADNOŚĆ I POZYCJA ---
         current_speed = self.velocity.length()
         if current_speed > self.max_speed:
             self.velocity *= self.speed_decay
@@ -146,8 +138,15 @@ class Enemy:
 
         self.pos += self.velocity
 
+        # --- NOWE: LOGIKA BARIERY ŚWIATA ---
+        # Używamy WORLD_RADIUS zdefiniowanego w EnemyManager
+        if self.pos.length() > self.manager.world_radius:
+            outward_dir = self.pos.normalize()
+            self.pos = outward_dir * self.manager.world_radius
+            self.velocity *= -0.5  # Odbicie od krawędzi
+            self.avoidance_side *= -1  # Zmiana kierunku krążenia po uderzeniu
+
         # --- 7. STRZELANIE ---
-        # Bot strzela tylko jak dziób patrzy na gracza (ignoruje kąt uniku przy strzale)
         real_aim_diff = (base_target_angle - self.angle + 180) % 360 - 180
         if abs(real_aim_diff) < 15 and dist_to_player < 700:
             self.shoot()
@@ -182,13 +181,14 @@ class Enemy:
         window.blit(rotated, rect.topleft)
 
 class EnemyManager:
-    def __init__(self, ship_frames, player_ref, music_obj, max_enemies, shoot_obj):
+    def __init__(self, ship_frames, player_ref, music_obj, max_enemies, shoot_obj, world_radius=25000):
         self.music_obj = music_obj
         self.ship_frames = ship_frames
         self.player_ref = player_ref
         self.enemies = []
         self.max_enemies = max_enemies
         self.shoot_obj = shoot_obj
+        self.world_radius = world_radius # Zapamiętujemy promień świata
 
     def update(self, dt):
         if len(self.enemies) < self.max_enemies and random.random() < 0.01:

@@ -28,7 +28,7 @@ image_load = load_images.ImageLoad()
 
 # --- KONFIGURACJA ŚWIATA ---
 WORLD_CENTER = pygame.math.Vector2(0, 0)
-WORLD_RADIUS = 10000    # Fizyczna granica
+WORLD_RADIUS = 25_000    # Fizyczna granica
 FADE_ZONE = 2000       # Dystans, od którego pojawia się ostrzeżenie
 
 # --- ŁADOWANIE ZASOBÓW ---
@@ -60,7 +60,7 @@ player_start_pos = [WORLD_CENTER.x, WORLD_CENTER.y]
 player = space_ship.SpaceShip(loaded_space_frames, [], audio_files, cxx, cyy, player_start_pos, music_obj, shoot_obj)
 
 # Manager wrogów (przekazujemy shoot_obj do obsługi ich pocisków)
-enemy_manager = EnemyManager(loaded_space_frames, player, music_obj, 20, shoot_obj)
+enemy_manager = EnemyManager(loaded_space_frames, player, music_obj, 20, shoot_obj, WORLD_RADIUS)
 events_obj = Event()
 colision_obj = collisions.Collision(music_obj)
 radar_obj = radar.Radar(cxx,cyy,radar_size=200,world_radius=WORLD_RADIUS,zoom_radius=4000)
@@ -73,7 +73,20 @@ cam_x, cam_y = player.player_pos.x, player.player_pos.y
 # --- PĘTLA GŁÓWNA ---
 running = True
 
-asteroid_manager = AsteroidManager(loaded_space_frames, WORLD_CENTER, WORLD_RADIUS, count=40)
+# Definiujemy strefy asteroid
+pola_asteroid = [
+    {
+        "pos": pygame.math.Vector2(0, 0), 
+        "radius": 22_000, 
+        "count": 250
+    },
+    {
+        "pos": pygame.math.Vector2(0, 0), 
+        "radius": 4500, 
+        "count": 50
+    }
+]
+asteroid_manager = AsteroidManager(loaded_space_frames_full, pola_asteroid)
 
 # Spawnujemy cele testowe (nieruchome, zoptymalizowane pod kątem update)
 # enemy_manager.spawn_test_targets(5)
@@ -107,7 +120,7 @@ while running:
 
     # 3. KOLIZJE (zgodne z Twoją nową klasą Collision)
     # Zwraca True, jeśli HP gracza spadnie do 0
-    if colision_obj.check_collisions(player, enemy_manager, shoot_obj):
+    if colision_obj.check_collisions(player, enemy_manager, shoot_obj, asteroid_manager):
         print("GAME OVER - PLAYER DESTROYED")
         # Tu można dodać restart: player.hp = 100, player.player_pos = WORLD_CENTER.copy()
 
@@ -154,7 +167,7 @@ while running:
     player_draw_x = (cxx // 2) + (player.player_pos.x - cam_x)
     player_draw_y = (cyy // 2) + (player.player_pos.y - cam_y)
     player.draw(window, player_draw_x, player_draw_y)
-    radar_obj.draw(window, player, enemy_manager, dt)
+    radar_obj.draw(window, player, enemy_manager, asteroid_manager, dt)
     game_controller.draw(window)
 
     # 6. ODŚWIEŻENIE
