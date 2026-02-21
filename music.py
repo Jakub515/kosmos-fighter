@@ -13,10 +13,17 @@ class MusicManager():
 
     def play(self, path, volume):
         if path in self.audio_files:
+            # Tworzymy obiekt Sound raz, jeśli chcesz oszczędzać procesor, 
+            # ale w Twoim obecnym systemie działa to tak:
             temp_music = pygame.mixer.Sound(path)
             temp_music.set_volume(volume)
             temp_music.play()
 
+    def handle_death(self):
+        """Wywołaj to, gdy gracz się rozbije."""
+        # 1. Płynnie wycisz muzykę w tle w ciągu 1.5 sekundy
+        pygame.mixer.music.fadeout(500)
+        
     def at_exit(self):
         pygame.mixer.stop()
         pygame.mixer.music.stop()

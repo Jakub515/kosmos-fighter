@@ -52,8 +52,9 @@ class Collision():
                             shot_hit = True
                             if enemy.hp <= 0:
                                 if enemy in enemy_manager.enemies:
-                                    enemy_manager.enemies.remove(enemy)
-                                    self.music_obj.play("images/audio/sfx_exp_medium1.wav", 0.2)
+                                    enemy.death()
+                                    #enemy_manager.enemies.remove(enemy)
+                                    #self.music_obj.play("images/audio/sfx_exp_medium1.wav", 0.2)
                             break 
                 else:
                     dist_sq = (shot["pos"] - player.player_pos).length_squared()
@@ -106,7 +107,8 @@ class Collision():
                         self._handle_asteroid_impact(enemy, asteroid, damage=20)
                         if enemy.hp <= 0:
                             if enemy in enemy_manager.enemies:
-                                enemy_manager.enemies.remove(enemy)
+                                enemy.death()
+                                #enemy_manager.enemies.remove(enemy)
                             break
 
         # --- 3. KOLIZJA: STATEK -> STATEK ---
@@ -121,7 +123,8 @@ class Collision():
                     self._handle_ship_collision(player, enemy)
                     if enemy.hp <= 0:
                         if enemy in enemy_manager.enemies:
-                            enemy_manager.enemies.remove(enemy)
+                            enemy.death()
+                            #enemy_manager.enemies.remove(enemy)
         
         return False
 
@@ -135,8 +138,9 @@ class Collision():
             
         if hasattr(ship, 'player_pos'): # Gracz
             ship.player_pos += push_dir * 15
-            if not ship.shield_active:
-                ship.hp -= damage
+            ship.hp -= damage
+            ship.destroy_cause_collision()
+            
         else: # Wróg
             ship.pos += push_dir * 15
             ship.hp -= damage
@@ -151,3 +155,4 @@ class Collision():
         player.velocity *= -0.5
         player.hp -= 20
         enemy.hp -= 100
+        player.destroy_cause_collision()
