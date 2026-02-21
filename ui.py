@@ -1,22 +1,27 @@
 import pygame
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from space_ship import SpaceShip
+    from functions import Event
 
 class GameController:
-    def __init__(self, event_obj, player, cxx, cyy, loaded_images):
+    def __init__(self, event_obj: "Event", player: "SpaceShip", cxx: int, cyy: int, loaded_images: dict):
         # Inicjalizujemy UI
         self.ui = UI(event_obj, cxx, cyy, loaded_images)
         
         # Inicjalizujemy InputHandler i przekazujemy mu obiekt UI
         self.input_handler = InputHandler(event_obj, player, self.ui)
 
-    def update(self, dt):
+    def update(self, dt: float):
         self.input_handler.update()
         self.ui.update()
 
-    def draw(self, window):
+    def draw(self, window: pygame.Surface):
         self.ui.draw(window)
 
 class InputHandler():
-    def __init__(self, event_obj, player_obj, ui_obj):
+    def __init__(self, event_obj: "Event", player_obj: "SpaceShip", ui_obj: "UI"):
         self.event_obj = event_obj
         self.player_obj = player_obj
         self.ctrl_pressed_last_frame = False
@@ -65,10 +70,8 @@ class InputHandler():
                 self.ui_obj.change_weapon_type_num(i)
                 self.player_obj.select_weapon(i)
                 break
-import pygame
-
 class UI:
-    def __init__(self, event_obj, screen_width, screen_height, images):
+    def __init__(self, event_obj: "Event", screen_width: int, screen_height: int, images: dict):
         self.event_obj = event_obj
         self.cxx = screen_width
         self.cyy = screen_height
@@ -92,7 +95,7 @@ class UI:
         self.target_x = 0         # Docelowa pozycja ramki
         self.lerp_speed = 0.15    # Prędkość podążania ramki (0.1 - 1.0)
 
-    def setup_weapons_1(self, images):
+    def setup_weapons_1(self, images: dict):
         """Zestaw Laserów"""
         return [
             [images["images/Lasers/laserBlue12.png"], 60, 5, 0.1],
@@ -102,7 +105,7 @@ class UI:
             [images["images/Lasers/laserBlue16.png"], 80, 1, 0.1]
         ]
 
-    def setup_weapons_2(self, images):
+    def setup_weapons_2(self, images: dict):
         """Zestaw Rakiet"""
         paths = ["001", "004", "007", "010", "013", "016", "019", "022", "025"]
         return [[images[f"images/Missiles/spaceMissiles_{p}.png"], 40, 5, 3] for p in paths]
@@ -112,13 +115,13 @@ class UI:
         self.active_set = 2 if self.active_set == 1 else 1
         self.current_weapon = 0
 
-    def change_weapon_type_num(self, index):
+    def change_weapon_type_num(self, index: int):
         """Wybór konkretnej broni z zestawu (1-9)"""
         current_list = self.weapons if self.active_set == 1 else self.weapons_2
         if index < len(current_list):
             self.current_weapon = index
 
-    def draw_proportional_icon(self, window, icon, rect):
+    def draw_proportional_icon(self, window:pygame.Surface, icon: pygame.Surface, rect:pygame.Rect):
         """
         Rysuje ikonę wewnątrz rect, powiększając ją maksymalnie 
         przy zachowaniu oryginalnych proporcji.
@@ -159,7 +162,7 @@ class UI:
             
         self.frame_x += (self.target_x - self.frame_x) * self.lerp_speed
 
-    def draw(self, window):
+    def draw(self, window: pygame.Surface):
         """Rysowanie całego interfejsu wyboru broni"""
         current_list = self.weapons if self.active_set == 1 else self.weapons_2
         total_w = len(current_list) * (self.slot_size + self.spacing) - self.spacing

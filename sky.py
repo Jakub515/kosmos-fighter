@@ -3,7 +3,7 @@ import random
 
 class SpaceBackground:
     # Używamy mniejszych wymiarów dla KAFELKA tła
-    def __init__(self, tile_width, tile_height, screen_width, screen_height, num_stars=500):
+    def __init__(self, tile_width: int, tile_height: int, screen_width:int, screen_height:int, num_stars:int=500):
         # Wymiary kafelka, który będziemy powtarzać
         self.tile_width = tile_width
         self.tile_height = tile_height
@@ -25,7 +25,7 @@ class SpaceBackground:
             color = random.choice([(255,255,255),(255,255,200)])
             pygame.draw.rect(self.tile_surface, color, (x, y, size, size))
     
-    def draw(self, screen, player_pos):
+    def draw(self, screen:pygame.Surface, player_pos: list|tuple):
         px, py = player_pos
         
         # 1. Obliczanie punktu startowego kafelkowania (lewy górny róg widocznego obszaru)

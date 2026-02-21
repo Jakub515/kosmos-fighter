@@ -1,7 +1,13 @@
 import pygame
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from asteroids import AsteroidManager
+    from space_ship import SpaceShip
+    from enemy_ship import EnemyManager
 
 class Radar:
-    def __init__(self, screen_width, screen_height, radar_size=200, world_radius=10000, zoom_radius=4000):
+    def __init__(self, screen_width: int, screen_height: int, radar_size:int=200, world_radius:int=10000, zoom_radius:int=4000):
         self.size = radar_size
         self.world_radius = world_radius
         
@@ -30,7 +36,7 @@ class Radar:
         self.pulse_speed = 0.35     
         self.num_circles = 2        
 
-    def draw(self, window, player, enemy_manager, asteroid_manager, dt):
+    def draw(self, window:pygame.Surface, player: "SpaceShip", enemy_manager: "EnemyManager", asteroid_manager: "AsteroidManager", dt: float):
         """
         Renderuje radar, w tym gracza, przeciwników oraz asteroidy.
         """

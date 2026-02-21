@@ -3,7 +3,7 @@ import math
 import time
 
 class Shoot():
-    def __init__(self, images):
+    def __init__(self, images: dict):
         self.images = images
         self.shots = []
         # Ładowanie klatek eksplozji
@@ -11,7 +11,7 @@ class Shoot():
             self.images[f"images/dym/Explosion/tile_{str(i).zfill(2)}.png"] for i in range(16)
         ]
 
-    def create_missle(self, data):
+    def create_missle(self, data: dict):
         # Dodajemy czas powstania i początkowy indeks klatki animacji
         data["spawn_time"] = time.time()
         data["is_exploding"] = False
@@ -51,7 +51,7 @@ class Shoot():
         if len(self.shots) > 150:
             self.shots.pop(0)
 
-    def draw(self, window, offset_x, offset_y):
+    def draw(self, window: pygame.Surface, offset_x: float, offset_y: float):
         for shot in self.shots:
             s_x = shot["pos"].x - offset_x
             s_y = shot["pos"].y - offset_y

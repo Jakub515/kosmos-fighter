@@ -1,10 +1,17 @@
 import pygame
 import math
 import random
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from music import MusicManager
+    from shoot import Shoot
+    from asteroids import AsteroidManager
+    from space_ship import SpaceShip
 
 class Debris:
     """Klasa reprezentująca pojedynczy odłamek zniszczonego statku."""
-    def __init__(self, pos, velocity, color):
+    def __init__(self, pos: pygame.math.Vector2, velocity: pygame.math.Vector2, color: tuple | list):
         self.pos = pygame.math.Vector2(pos)
         self.velocity = velocity + pygame.math.Vector2(random.uniform(-4, 4), random.uniform(-4, 4))
         self.angle = random.uniform(0, 360)
@@ -20,7 +27,7 @@ class Debris:
         self.life -= self.decay
         self.velocity *= 0.97  
 
-    def draw(self, window, camera_x, camera_y):
+    def draw(self, window: pygame.Surface, camera_x: float, camera_y: float):
         if self.life <= 0: return
         s = self.size
         debris_surf = pygame.Surface((s, s), pygame.SRCALPHA)
@@ -31,7 +38,7 @@ class Debris:
         window.blit(rotated_debris, rect.topleft)
 
 class Enemy:
-    def __init__(self, ship_frames, player_ref, music_obj, shoot_obj, enemy_manager, spawn_pos, asteroid_manager):
+    def __init__(self, ship_frames: dict, player_ref: "SpaceShip", music_obj: "MusicManager", shoot_obj: "Shoot", enemy_manager: "EnemyManager", spawn_pos: pygame.math.Vector2, asteroid_manager: "AsteroidManager"):
         self.music_obj = music_obj
         self.ship_frames = ship_frames
         self.player_ref = player_ref
@@ -43,9 +50,9 @@ class Enemy:
         self.debris_list = []
         
         enemy_types = [
-            ("images/Enemies/enemyBlack1.png", 0.15, 1),
-            ("images/Enemies/enemyBlack2.png", 0.12, 1),
-            ("images/Enemies/enemyBlack3.png", 0.1, 1)
+            ("images/Enemies/enemyBlack1.png", 0.18, 1), # Lekko zwiększony thrust
+            ("images/Enemies/enemyBlack2.png", 0.15, 1),
+            ("images/Enemies/enemyBlack3.png", 0.12, 1)
         ]
         self.texture_path, self.thrust_power, self.hp = random.choice(enemy_types)
         self.image = pygame.transform.rotate(self.ship_frames[self.texture_path], -90)
@@ -55,9 +62,9 @@ class Enemy:
         self.velocity = pygame.math.Vector2(0, 0)
         self.angle = random.uniform(0, 360)
         self.angular_velocity = 0
-        self.angular_acceleration = 0.6 # Zwiększono responsywność obrotu
-        self.angular_friction = 0.90
-        self.max_speed = 9.0 # Lekko zmniejszono max_speed, by łatwiej było manewrować
+        self.angular_acceleration = 0.8 # Zwiększona skrętność
+        self.angular_friction = 0.85
+        self.max_speed = 9.0 
         self.linear_friction = 0.995
 
         self.weapons = [
@@ -79,17 +86,15 @@ class Enemy:
             for _ in range(random.randint(10, 15)):
                 self.debris_list.append(Debris(self.pos, self.velocity, random.choice(colors)))
 
-    def update(self, dt):
+    def update(self, dt: float):
         if self.is_dead:
             for d in self.debris_list: d.update()
             self.debris_list = [d for d in self.debris_list if d.life > 0]
             return
 
         SAFE_MARGIN = 500  
-        # Zwiększony bazowy dystans omijania
-        BASE_AVOIDANCE = 350 
-        # Bonus do "wzroku" zależny od prędkości bota (im szybciej leci, tym dalej widzi)
-        speed_bonus = self.velocity.length() * 20
+        BASE_AVOIDANCE = 350 # Zmniejszony bazowy dystans uniku, by nie błądzili
+        speed_bonus = self.velocity.length() * 15
         total_avoid_dist = BASE_AVOIDANCE + speed_bonus
 
         dist_from_center = self.pos.length()
@@ -111,48 +116,44 @@ class Enemy:
             self.is_thrusting = True 
         else:
             target_angle = -math.degrees(math.atan2(dir_to_player.y, dir_to_player.x))
-            self.is_thrusting = dist_to_player > 350
+            self.is_thrusting = dist_to_player > 300
 
-        # 2. ULEPSZONE OMIJANIE ASTEROID
+        # 2. LOGIKA OMIJANIA ASTEROID
         asteroid_influence = pygame.math.Vector2(0, 0)
         nearby_asteroids = 0
 
         for asteroid in self.asteroid_manager.asteroids:
             dist_to_ast_sq = self.pos.distance_squared_to(asteroid.pos)
-            # Uwzględniamy promień asteroidy w progu detekcji
-            avoid_threshold = (asteroid.radius + total_avoid_dist) ** 2
+            avoid_threshold = ((asteroid.radius + total_avoid_dist) ** 2) * 1.5
             
             if dist_to_ast_sq < avoid_threshold:
                 dist = math.sqrt(dist_to_ast_sq)
-                # Wektor od asteroidy do bota
                 diff = self.pos - asteroid.pos
                 if diff.length() > 0:
-                    # Siła odpychania jest potężna, gdy bot jest blisko
-                    push_force = (1.0 - (dist / (asteroid.radius + total_avoid_dist))) ** 2
+                    # Miękka siła odpychania
+                    push_force = (1.0 - (dist / (asteroid.radius + total_avoid_dist)))
                     asteroid_influence += diff.normalize() * push_force
                     nearby_asteroids += 1
 
         if nearby_asteroids > 0:
-            # Łączymy wektor celu (gracz) z wektorem uniku (asteroidy)
-            # Przeliczamy target_angle na wektor, by go zmieszać
             target_rad = math.radians(-target_angle)
             target_dir_vec = pygame.math.Vector2(math.cos(target_rad), math.sin(target_rad))
             
-            # Wpływ asteroid jest bardzo silny (mnożnik 3.0)
-            final_dir = (target_dir_vec + asteroid_influence * 3.0).normalize()
+            # Mniejszy mnożnik (1.5 zamiast 3.0), aby boty nie wpadały w panikę
+            final_dir = (target_dir_vec + asteroid_influence * 1.5).normalize()
             target_angle = -math.degrees(math.atan2(final_dir.y, final_dir.x))
             
-            # Jeśli bot jest bardzo blisko asteroidy, zwalnia, by lepiej wykręcić
-            if asteroid_influence.length() > 0.5:
-                self.velocity *= 0.96
+            # Hamowanie tylko przy bardzo dużym ryzyku kolizji
+            if asteroid_influence.length() > 1.2:
+                self.velocity *= 0.985
 
         # 3. Separacja od innych wrogów
         for other in self.manager.enemies:
             if other is self or other.is_dead: continue
             if self.pos.distance_to(other.pos) < 150:
-                target_angle += 45 * self.avoidance_side
+                target_angle += 30 * self.avoidance_side
 
-        # 4. Fizyka obrotu (Wyższa angular_acceleration pomaga szybciej korygować kurs)
+        # 4. Fizyka obrotu
         angle_diff = (target_angle - self.angle + 180) % 360 - 180
         if angle_diff > 2: self.angular_velocity += self.angular_acceleration
         elif angle_diff < -2: self.angular_velocity -= self.angular_acceleration
@@ -165,7 +166,11 @@ class Enemy:
         forward_dir = pygame.math.Vector2(math.cos(rad), math.sin(rad))
         
         if self.is_thrusting:
-            self.velocity += forward_dir * self.thrust_power
+            current_thrust = self.thrust_power
+            # Zwiększamy ciąg, gdy bot musi manewrować (omijać), żeby nie stał w miejscu
+            if nearby_asteroids > 0:
+                current_thrust *= 1.4
+            self.velocity += forward_dir * current_thrust
 
         if self.velocity.length() > self.max_speed:
             self.velocity.scale_to_length(self.max_speed)
@@ -173,10 +178,10 @@ class Enemy:
         self.velocity *= self.linear_friction
         self.pos += self.velocity
 
-        # 6. Strzelanie (Blokada strzelania, gdy bot wykonuje gwałtowny unik)
-        if nearby_asteroids == 0 or asteroid_influence.length() < 0.3:
+        # 6. Strzelanie
+        if nearby_asteroids == 0 or asteroid_influence.length() < 0.5:
             if dist_from_center < (self.manager.world_radius - SAFE_MARGIN):
-                if abs(angle_diff) < 20 and dist_to_player < 800:
+                if abs(angle_diff) < 25 and dist_to_player < 850:
                     self.shoot()
 
     def shoot(self):
@@ -194,7 +199,7 @@ class Enemy:
                 "is_enemy_shot": True
             })
 
-    def draw(self, window, camera_x, camera_y):
+    def draw(self, window: pygame.Surface, camera_x: float, camera_y: float):
         if self.is_dead:
             for d in self.debris_list: d.draw(window, camera_x, camera_y)
             return
@@ -212,7 +217,7 @@ class Enemy:
         window.blit(rotated, rect.topleft)
 
 class EnemyManager:
-    def __init__(self, ship_frames, player_ref, music_obj, max_enemies, shoot_obj, world_radius, asteroid_manager):
+    def __init__(self, ship_frames: dict, player_ref: "SpaceShip", music_obj: "MusicManager", max_enemies: int, shoot_obj: "Shoot", world_radius: int, asteroid_manager: "AsteroidManager"):
         self.ship_frames = ship_frames
         self.player_ref = player_ref
         self.music_obj = music_obj
@@ -222,7 +227,7 @@ class EnemyManager:
         self.asteroid_manager = asteroid_manager
         self.enemies = []
 
-    def update(self, dt):
+    def update(self, dt: float):
         living_enemies = [e for e in self.enemies if not e.is_dead]
         
         if len(living_enemies) < self.max_enemies and random.random() < 0.02:
@@ -248,6 +253,6 @@ class EnemyManager:
             if enemy.is_dead and len(enemy.debris_list) == 0:
                 self.enemies.remove(enemy)
 
-    def draw(self, window, camera_x, camera_y):
+    def draw(self, window: pygame.Surface, camera_x:float, camera_y:float):
         for enemy in self.enemies:
             enemy.draw(window, camera_x, camera_y)

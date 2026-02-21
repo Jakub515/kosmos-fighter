@@ -1,11 +1,19 @@
 import pygame
 import math
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from music import MusicManager
+    from shoot import Shoot
+    from asteroids import AsteroidManager
+    from space_ship import SpaceShip
+    from enemy_ship import EnemyManager, Enemy
 
 class Collision():
-    def __init__(self, mixer_obj):
+    def __init__(self, mixer_obj: "MusicManager"):
         self.music_obj = mixer_obj
         
-    def get_masked_data(self, image, pos, angle):
+    def get_masked_data(self, image: pygame.Surface, pos:pygame.math.Vector2, angle: float):
         """
         Pomocnicza funkcja dla kolizji pixel-perfect. 
         Tworzy maskę z uwzględnieniem obrotu i przezroczystości (alpha).
@@ -15,7 +23,7 @@ class Collision():
         mask = pygame.mask.from_surface(rotated_image)
         return rect, mask
 
-    def check_mask_collision(self, obj1_img, obj1_pos, obj1_angle, obj2_img, obj2_pos, obj2_angle):
+    def check_mask_collision(self, obj1_img:pygame.Surface, obj1_pos:pygame.math.Vector2, obj1_angle: float, obj2_img:pygame.Surface, obj2_pos:pygame.math.Vector2, obj2_angle:float):
         """
         Sprawdza kolizję pixel-perfect między dwoma dowolnymi obiektami.
         """
@@ -27,7 +35,7 @@ class Collision():
 
         return mask1.overlap(mask2, (offset_x, offset_y))
 
-    def check_collisions(self, player, enemy_manager, shoot_obj, asteroid_manager):
+    def check_collisions(self, player: "SpaceShip", enemy_manager: "EnemyManager", shoot_obj: "Shoot", asteroid_manager: "AsteroidManager"):
         # --- 1. KOLIZJE POCISKÓW ---
         for shot in shoot_obj.shots[:]:
             if shot.get("is_exploding"):
@@ -128,7 +136,7 @@ class Collision():
         
         return False
 
-    def _handle_asteroid_impact(self, ship, asteroid, damage):
+    def _handle_asteroid_impact(self, ship, asteroid, damage: int):
         """Logika odrzutu i obrażeń przy zderzeniu z asteroidą."""
         push_dir = (ship.player_pos if hasattr(ship, 'player_pos') else ship.pos) - asteroid.pos
         if push_dir.length() > 0:

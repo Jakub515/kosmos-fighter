@@ -1,13 +1,17 @@
 import pygame
 import math
 import random
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from music import MusicManager
+    from shoot import Shoot
 
 class SpaceShip():
-    def __init__(self, ship_frames, ship_parts, ship_audio_path, cxx, cyy, player_pos, music, shoot_obj):
+    def __init__(self, ship_frames: dict, ship_audio_path:list|tuple, cxx:int, cyy:int, player_pos:list|tuple, music: "MusicManager", shoot_obj: "Shoot"):
         self.shoot_obj = shoot_obj
         self.music_obj = music
         self.ship_frames = ship_frames
-        self.ship_parts = ship_parts
         self.ship_audio_path = ship_audio_path
         
         # --- STAN ZNISZCZENIA ---
@@ -100,7 +104,7 @@ class SpaceShip():
         self.current_weapon = 0
         self.active_set = 1
 
-    def _create_placeholder_shield(self, radius, color):
+    def _create_placeholder_shield(self, radius:float, color:tuple|list):
         s = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
         pygame.draw.circle(s, color, (radius, radius), radius, 3)
         return s
@@ -147,18 +151,18 @@ class SpaceShip():
             self.music_obj.play("images/audio/the_end_1.wav", 1.0)
 
     # --- INTERFEJS STEROWANIA ---
-    def thrust(self, active, boost=False):
+    def thrust(self, active:bool, boost:bool=False):
         if not self.is_destroyed:
             self.is_thrusting = active
             self.is_boosting = boost
 
-    def rotate(self, direction): 
+    def rotate(self, direction:float): 
         if not self.is_destroyed: self.rotation_dir = direction
 
-    def brake(self, active): 
+    def brake(self, active:bool): 
         if not self.is_destroyed: self.is_braking = active
 
-    def fire(self, active): 
+    def fire(self, active:bool): 
         if not self.is_destroyed: self.want_to_shoot = active
 
     def switch_weapon_set(self):
@@ -166,18 +170,18 @@ class SpaceShip():
             self.active_set = 2 if self.active_set == 1 else 1
             self.current_weapon = 0
 
-    def select_weapon(self, index):
+    def select_weapon(self, index:int):
         if not self.is_destroyed:
             limit = len(self.weapons) if self.active_set == 1 else len(self.weapons_2)
             if index < limit: self.current_weapon = index
 
-    def activate_shield(self, timer=250):
+    def activate_shield(self, timer:int=250):
         if not self.is_destroyed:
             self.shield_active = True
             self.shield_timer = timer
 
     # --- LOGIKA ---
-    def _handle_shooting(self, forward_dir):
+    def _handle_shooting(self, forward_dir:pygame.math.Vector2):
         w_set = self.weapons if self.active_set == 1 else self.weapons_2
         timers = self.weapon_timers if self.active_set == 1 else self.weapon_timers_2
         
@@ -200,7 +204,7 @@ class SpaceShip():
                 if self.music_obj:
                     self.music_obj.play("images/audio/sfx_laser1.wav", 0.7)
 
-    def update(self, dt):
+    def update(self, dt:float):
         if self.is_destroyed:
             # Wygaszanie błysku
             if self.explosion_flash > 0:
@@ -288,7 +292,7 @@ class SpaceShip():
 
         return [self.player_pos.x, self.player_pos.y]
 
-    def draw(self, window, draw_x, draw_y):
+    def draw(self, window:pygame.Surface, draw_x:float, draw_y:float):
         if self.is_destroyed:
             # Iskry
             for p in self.particles:

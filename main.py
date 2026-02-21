@@ -1,170 +1,109 @@
 import pygame
-import load_images
-import space_ship
+import load_images, space_ship, collisions, music, shoot, radar, ui
 from sky import SpaceBackground
-import os
-import collisions
-from collections import defaultdict
 from functions import Event
 from enemy_ship import EnemyManager
-import music
-import shoot
-import radar
-import ui
 from asteroids import AsteroidManager
+from camera import Camera
 
-# --- INICJALIZACJA ---
+# --- A. INICJALIZACJA I KONFIGURACJA ---
 pygame.init()
 pygame.font.init()
 
-clock = pygame.time.Clock()
 FPS = 60
-# Ustawienie trybu pełnoekranowego
-window = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+clock = pygame.time.Clock()
+window = pygame.display.set_mode((1920, 1080), pygame.FULLSCREEN)
 cxx, cyy = window.get_size()
 pygame.display.set_caption("Kosmos")
 
-image_load = load_images.ImageLoad()
-
-# --- KONFIGURACJA ŚWIATA ---
 WORLD_CENTER = pygame.math.Vector2(0, 0)
-WORLD_RADIUS = 25_000    # Fizyczna granica
-FADE_ZONE = 2000       # Dystans, od którego pojawia się ostrzeżenie
+WORLD_RADIUS = 25_000
+FADE_ZONE = 2000
 
-# --- KONFIGURACJA KAMERY ---
-CAMERA_LERP_FACTOR = 0.08    # Gładkość (0.05 - 0.15 jest optymalne)
-CAMERA_OFFSET_SCALAR = 15    # Jak mocno prędkość wychyla kamerę
+# --- B. ŁADOWANIE ZASOBÓW (Zintegrowane w module) ---
+image_loader = load_images.ImageLoad()
+# Wszystko dzieje się teraz w jednej linijce
+loaded_space_frames, loaded_space_frames_full, audio_files = image_loader.load_all_assets()
 
-# --- ŁADOWANIE ZASOBÓW ---
-base_folder = os.path.join(os.getcwd(), "images")
-files_by_ext = defaultdict(list)
-if os.path.exists(base_folder):
-    for root, _, files in os.walk(base_folder):
-        for file in files:
-            _, ext = os.path.splitext(file)
-            ext = ext.lower()
-            rel_path = os.path.relpath(os.path.join(root, file), os.getcwd()).replace("\\", "/")
-            files_by_ext[ext].append(rel_path)
-
-space_frames = sorted(files_by_ext.get(".png", []))
-audio_files = sorted(files_by_ext.get(".wav", []))
-
-# Ładowanie obrazów
-loaded_space_frames = {path: image_load.get_image(path, 40) for path in space_frames}
-loaded_space_frames_full = {path: image_load.get_image(path, 100) for path in space_frames}
-
+# --- C. TWORZENIE OBIEKTÓW ---
 music_obj = music.MusicManager(audio_files)
+shoot_obj = shoot.Shoot(loaded_space_frames)
+events_obj = Event()
+camera = Camera(cxx, cyy, lerp_factor=0.08, offset_scalar=15)
+
+bg = SpaceBackground(cxx, cyy, cxx, cyy, 50)
+player = space_ship.SpaceShip(loaded_space_frames, audio_files, cxx, cyy, [0, 0], music_obj, shoot_obj)
 
 pola_asteroid = [
-    {"pos": pygame.math.Vector2(0, 0), "radius": 22_000, "count": 250},
+    {"pos": pygame.math.Vector2(0, 0), "radius": 22000, "count": 250},
     {"pos": pygame.math.Vector2(0, 0), "radius": 4500, "count": 50}
 ]
 asteroid_manager = AsteroidManager(loaded_space_frames_full, pola_asteroid)
-
-# --- OBIEKTY GRY ---
-bg = SpaceBackground(tile_width=cxx, tile_height=cyy, screen_width=cxx, screen_height=cyy, num_stars=50)
-shoot_obj = shoot.Shoot(loaded_space_frames)
-
-player_start_pos = [WORLD_CENTER.x, WORLD_CENTER.y]
-player = space_ship.SpaceShip(loaded_space_frames, [], audio_files, cxx, cyy, player_start_pos, music_obj, shoot_obj)
-
 enemy_manager = EnemyManager(loaded_space_frames, player, music_obj, 20, shoot_obj, WORLD_RADIUS, asteroid_manager)
-events_obj = Event()
-colision_obj = collisions.Collision(music_obj)
-radar_obj = radar.Radar(cxx, cyy, radar_size=200, world_radius=WORLD_RADIUS, zoom_radius=4000)
 
+colision_obj = collisions.Collision(music_obj)
+radar_obj = radar.Radar(cxx, cyy, 200, WORLD_RADIUS)
 game_controller = ui.GameController(events_obj, player, cxx, cyy, loaded_space_frames_full)
 
-# Inicjalizacja pozycji kamery na startowej pozycji gracza
-cam_x, cam_y = player.player_pos.x, player.player_pos.y
-
-# --- PĘTLA GŁÓWNA ---
+# --- D. GŁÓWNA PĘTLA ---
 running = True
-
-
-
 while running:
-    dt = clock.tick(FPS) / 1000.0 
-    
-    # 1. EVENTY
-    events_obj.update() 
+    dt = clock.tick(FPS) / 1000.0
 
+    # 1. Zdarzenia (Input)
+    events_obj.update()
     if events_obj.key_escape or events_obj.system_exit:
-        music_obj.at_exit()
         running = False
-        break
 
+    # 2. Logika (Update)
     game_controller.update(dt)
-
-    # 2. AKTUALIZACJA LOGIKI
     player.update(dt)
     enemy_manager.update(dt)
-    asteroid_manager.update(dt, player)
+    asteroid_manager.update(dt, player, enemy_manager)
     shoot_obj.update()
-
-    # --- FIZYKA BARIERY ŚWIATA ---
-    distance = player.player_pos.distance_to(WORLD_CENTER)
-    if distance > WORLD_RADIUS:
-        outward_dir = (player.player_pos - WORLD_CENTER).normalize()
-        player.player_pos = WORLD_CENTER + outward_dir * WORLD_RADIUS
-        player.velocity *= -0.3 
+    
+    # Fizyka bariery świata
+    dist = player.player_pos.distance_to(WORLD_CENTER)
+    if dist > WORLD_RADIUS:
+        player.player_pos = WORLD_CENTER + (player.player_pos - WORLD_CENTER).normalize() * WORLD_RADIUS
+        player.velocity *= -0.3
         player.destroy_cause_collision()
 
-    # 3. KOLIZJE
-    if colision_obj.check_collisions(player, enemy_manager, shoot_obj, asteroid_manager):
-        print("GAME OVER - PLAYER DESTROYED")
-
-    # 4. KAMERA (Dynamiczny punkt docelowy zależny od prędkości)
-    # Cel kamery to pozycja gracza + przesunięcie wynikające z aktualnej prędkości
-    target_cam_x = player.player_pos.x + (player.velocity.x * CAMERA_OFFSET_SCALAR)
-    target_cam_y = player.player_pos.y + (player.velocity.y * CAMERA_OFFSET_SCALAR)
-
-    # Płynne dążenie kamery do celu (Lerp)
-    cam_x += (target_cam_x - cam_x) * CAMERA_LERP_FACTOR
-    cam_y += (target_cam_y - cam_y) * CAMERA_LERP_FACTOR
-
-    # Offsety do rysowania obiektów względem kamery
-    screen_off_x = cam_x - (cxx // 2)
-    screen_off_y = cam_y - (cyy // 2)
-
-    # 5. RYSOWANIE
-    # A. Tło
-    bg.draw(window, (cam_x, cam_y))
-
-    # B. Wizualna bariera świata
-    start_warning_dist = WORLD_RADIUS - FADE_ZONE
-    if distance > start_warning_dist:
-        intensity = (distance - start_warning_dist) / FADE_ZONE
-        intensity = max(0, min(1.0, intensity))
-        alpha = int(intensity * 255)
-        
-        rel_center_x = int(WORLD_CENTER.x - screen_off_x)
-        rel_center_y = int(WORLD_CENTER.y - screen_off_y)
-        
-        temp_surface = pygame.Surface((cxx, cyy), pygame.SRCALPHA)
-        pygame.draw.circle(temp_surface, (255, 0, 0, alpha // 4), (rel_center_x, rel_center_y), WORLD_RADIUS, 500)
-        pygame.draw.circle(temp_surface, (255, 50, 50, alpha), (rel_center_x, rel_center_y), WORLD_RADIUS, 15)
-        window.blit(temp_surface, (0, 0))
-
-    # C. Pociski
-    shoot_obj.draw(window, screen_off_x, screen_off_y)
-
-    # D. Przeciwnicy i asteroidy
-    asteroid_manager.draw(window, screen_off_x, screen_off_y)
-    enemy_manager.draw(window, screen_off_x, screen_off_y)
-
-    # E. Gracz
-    # Rysujemy gracza względem kamery. Ponieważ kamera dąży do target_cam (z offsetem),
-    # statek nie zawsze będzie idealnie w (cxx//2, cyy//2) podczas zmian prędkości.
-    player_draw_x = (cxx // 2) + (player.player_pos.x - cam_x)
-    player_draw_y = (cyy // 2) + (player.player_pos.y - cam_y)
-    player.draw(window, player_draw_x, player_draw_y)
+    colision_obj.check_collisions(player, enemy_manager, shoot_obj, asteroid_manager)
     
+    # Aktualizacja kamery
+    camera.update(player.player_pos, player.velocity)
+
+    # 3. Rysowanie (Draw)
+    # Tło pociąga pozycję kamery dla efektu paralaksy/przesuwania
+    bg.draw(window, (camera.pos.x, camera.pos.y))
+
+    # Wizualna bariera świata (używamy camera.apply, aby krąg był na właściwych współrzędnych)
+    if dist > WORLD_RADIUS - FADE_ZONE:
+        alpha = int(max(0, min(1.0, (dist - (WORLD_RADIUS - FADE_ZONE)) / FADE_ZONE)) * 255)
+        rel_center = camera.apply(WORLD_CENTER)
+        temp_s = pygame.Surface((cxx, cyy), pygame.SRCALPHA)
+        pygame.draw.circle(temp_s, (255, 0, 0, alpha // 4), rel_center, WORLD_RADIUS, 500)
+        pygame.draw.circle(temp_s, (255, 50, 50, alpha), rel_center, WORLD_RADIUS, 15)
+        window.blit(temp_s, (0, 0))
+
+    # Obiekty świata (używają offsetu kamery)
+    off_x, off_y = camera.offset.x, camera.offset.y
+    shoot_obj.draw(window, off_x, off_y)
+    asteroid_manager.draw(window, off_x, off_y)
+    enemy_manager.draw(window, off_x, off_y)
+    
+    # Gracz (pozycja przeliczona przez kamerę)
+    p_draw = camera.apply(player.player_pos)
+    player.draw(window, p_draw[0], p_draw[1])
+
+    # UI i Radar (na sztywno do ekranu)
     radar_obj.draw(window, player, enemy_manager, asteroid_manager, dt)
     game_controller.draw(window)
 
-    # 6. ODŚWIEŻENIE
     pygame.display.flip()
 
+# Wyjście
+music_obj.at_exit()
 pygame.font.quit()
 pygame.quit()
