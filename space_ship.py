@@ -111,7 +111,9 @@ class SpaceShip():
 
     # --- OBSŁUGA KATASTROFY ---
     def destroy_cause_collision(self):
-        if self.is_destroyed: return
+        if self.is_destroyed:
+            return
+        return
         self.is_destroyed = True
         self.explosion_flash = 255 # Inicjalizacja mocnego błysku
         

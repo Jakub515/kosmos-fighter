@@ -43,7 +43,7 @@ enemy_manager = EnemyManager(loaded_space_frames, player, music_obj, 20, shoot_o
 
 colision_obj = collisions.Collision(music_obj)
 radar_obj = radar.Radar(cxx, cyy, 200, WORLD_RADIUS)
-game_controller = ui.GameController(events_obj, player, cxx, cyy, loaded_space_frames_full)
+game_controller = ui.GameController(events_obj, player, cxx, cyy, loaded_space_frames_full, clock)
 
 # --- D. GŁÓWNA PĘTLA ---
 running = True

@@ -6,21 +6,23 @@ if TYPE_CHECKING:
     from functions import Event
 
 class GameController:
-    def __init__(self, event_obj: "Event", player: "SpaceShip", cxx: int, cyy: int, loaded_images: dict):
+    def __init__(self, event_obj: "Event", player: "SpaceShip", cxx: int, cyy: int, loaded_images: dict, clock: pygame.time.Clock):
         # Inicjalizujemy UI
         self.ui = UI(event_obj, cxx, cyy, loaded_images)
-        
         # Inicjalizujemy InputHandler i przekazujemy mu obiekt UI
         self.input_handler = InputHandler(event_obj, player, self.ui)
+        # Przechowujemy referencję do zegara gry
+        self.clock = clock
 
     def update(self, dt: float):
         self.input_handler.update()
-        self.ui.update()
+        # Przekazujemy aktualny FPS do UI
+        self.ui.update(self.clock.get_fps())
 
     def draw(self, window: pygame.Surface):
         self.ui.draw(window)
 
-class InputHandler():
+class InputHandler:
     def __init__(self, event_obj: "Event", player_obj: "SpaceShip", ui_obj: "UI"):
         self.event_obj = event_obj
         self.player_obj = player_obj
@@ -29,7 +31,6 @@ class InputHandler():
     
     def update(self):
         # --- RUCH ---
-        # Thrust i Boost
         is_boosting = self.event_obj.backquote
         self.player_obj.thrust(self.event_obj.key_up, boost=is_boosting)
 
@@ -45,20 +46,16 @@ class InputHandler():
         self.player_obj.brake(self.event_obj.key_down)
 
         # --- WALKA ---
-        # Strzelanie
         self.player_obj.fire(self.event_obj.key_space)
 
-        # Tarcza
         if self.event_obj.key_s:
             self.player_obj.activate_shield()
 
-        # Przełączanie zestawów broni (Toggle CTRL)
         if self.event_obj.key_ctrl_left and not self.ctrl_pressed_last_frame:
             self.player_obj.switch_weapon_set()
             self.ui_obj.change_weapon_type_ctr()
         self.ctrl_pressed_last_frame = self.event_obj.key_ctrl_left
 
-        # Wybór konkretnej broni (Klawisze 1-9)
         keys_numbers = [
             self.event_obj.key_1, self.event_obj.key_2, self.event_obj.key_3,
             self.event_obj.key_4, self.event_obj.key_5, self.event_obj.key_6,
@@ -70,33 +67,37 @@ class InputHandler():
                 self.ui_obj.change_weapon_type_num(i)
                 self.player_obj.select_weapon(i)
                 break
+
 class UI:
     def __init__(self, event_obj: "Event", screen_width: int, screen_height: int, images: dict):
         self.event_obj = event_obj
         self.cxx = screen_width
         self.cyy = screen_height
-        self.font = pygame.font.Font("fonts/JetBrainsMono-Italic-VariableFont_wght.ttf", 16)#pygame.font.SysFont("Arial", 14, bold=True)
+        
+        # Próba załadowania czcionki, fallback do systemowej w razie błędu
+        try:
+            self.font = pygame.font.Font("fonts/JetBrainsMono-Italic-VariableFont_wght.ttf", 16)
+        except:
+            self.font = pygame.font.SysFont("Arial", 16, bold=True)
 
-        # Inicjalizacja list broni z obrazkami i parametrami
-        # Zakładamy, że images to słownik z załadowanymi Surface'ami
         self.weapons = self.setup_weapons_1(images)
         self.weapons_2 = self.setup_weapons_2(images)
 
         self.active_set = 1
         self.current_weapon = 0
+        self.fps = 0
         
         # --- PARAMETRY GRAFICZNE ---
-        self.slot_size = 55       # Rozmiar kwadratowego slotu
-        self.spacing = 8          # Odstęp między slotami
-        self.y_pos = 25           # Pozycja paska od góry ekranu
+        self.slot_size = 55
+        self.spacing = 8
+        self.y_pos = 25
         
         # --- LOGIKA ANIMACJI ---
-        self.frame_x = 0          # Bieżąca pozycja ramki (wyliczana w update)
-        self.target_x = 0         # Docelowa pozycja ramki
-        self.lerp_speed = 0.15    # Prędkość podążania ramki (0.1 - 1.0)
+        self.frame_x = 0
+        self.target_x = 0
+        self.lerp_speed = 0.15
 
     def setup_weapons_1(self, images: dict):
-        """Zestaw Laserów"""
         return [
             [images["images/Lasers/laserBlue12.png"], 60, 5, 0.1],
             [images["images/Lasers/laserBlue13.png"], 65, 4, 0.4],
@@ -106,95 +107,75 @@ class UI:
         ]
 
     def setup_weapons_2(self, images: dict):
-        """Zestaw Rakiet"""
         paths = ["001", "004", "007", "010", "013", "016", "019", "022", "025"]
         return [[images[f"images/Missiles/spaceMissiles_{p}.png"], 40, 5, 3] for p in paths]
 
     def change_weapon_type_ctr(self):
-        """Przełączanie między laserami a rakietami (CTRL)"""
         self.active_set = 2 if self.active_set == 1 else 1
         self.current_weapon = 0
 
     def change_weapon_type_num(self, index: int):
-        """Wybór konkretnej broni z zestawu (1-9)"""
         current_list = self.weapons if self.active_set == 1 else self.weapons_2
         if index < len(current_list):
             self.current_weapon = index
 
-    def draw_proportional_icon(self, window:pygame.Surface, icon: pygame.Surface, rect:pygame.Rect):
-        """
-        Rysuje ikonę wewnątrz rect, powiększając ją maksymalnie 
-        przy zachowaniu oryginalnych proporcji.
-        """
-        img_w = icon.get_width()
-        img_h = icon.get_height()
-        
-        # Margines wewnątrz slotu (np. 10 pikseli luzu)
+    def draw_proportional_icon(self, window: pygame.Surface, icon: pygame.Surface, rect: pygame.Rect):
+        img_w, img_h = icon.get_size()
         padding = 10
         max_dim = self.slot_size - padding
-        
-        # Obliczanie skali (wybieramy mniejszą, aby nic nie wystawało)
         scale = min(max_dim / img_w, max_dim / img_h)
         
         new_size = (int(img_w * scale), int(img_h * scale))
-        # smoothscale daje ładniejsze krawędzie dla ikon UI
         scaled_icon = pygame.transform.smoothscale(icon, new_size)
-        
-        # Centrowanie ikony wewnątrz przekazanego prostokąta slotu
         icon_rect = scaled_icon.get_rect(center=rect.center)
         window.blit(scaled_icon, icon_rect)
 
-    def update(self):
-        """Przeliczanie pozycji animowanej ramki"""
+    def update(self, current_fps: float):
+        """Przeliczanie pozycji animowanej ramki oraz FPS"""
+        self.fps = current_fps
         current_list = self.weapons if self.active_set == 1 else self.weapons_2
         
-        # Obliczanie całkowitej szerokości paska dla centrowania
         total_w = len(current_list) * (self.slot_size + self.spacing) - self.spacing
         start_x = (self.cxx - total_w) // 2
         
-        # Gdzie ramka POWINNA być
         self.target_x = start_x + self.current_weapon * (self.slot_size + self.spacing)
         
-        # Płynne przesuwanie ramki do celu (Lerp)
-        # Jeśli ramka jest daleko od startu (np. przy zmianie zestawu), teleportujemy ją bliżej
         if abs(self.target_x - self.frame_x) > 400:
             self.frame_x = self.target_x
             
         self.frame_x += (self.target_x - self.frame_x) * self.lerp_speed
 
     def draw(self, window: pygame.Surface):
-        """Rysowanie całego interfejsu wyboru broni"""
+        # 1. Rysowanie FPS w prawym górnym rogu
+        fps_text = self.font.render(f"FPS: {int(self.fps)}", True, (0, 255, 100))
+        # topright zapewnia stały margines od prawej krawędzi
+        window.blit(fps_text, (self.cxx - fps_text.get_width() - 20, 20))
+
+        # 2. Rysowanie slotów i ikon
         current_list = self.weapons if self.active_set == 1 else self.weapons_2
         total_w = len(current_list) * (self.slot_size + self.spacing) - self.spacing
         start_x = (self.cxx - total_w) // 2
 
-        # 1. Rysowanie slotów i ikon
         for i, weapon_data in enumerate(current_list):
             icon = weapon_data[0]
             x = start_x + i * (self.slot_size + self.spacing)
             slot_rect = pygame.Rect(x, self.y_pos, self.slot_size, self.slot_size)
             
-            # Tło slotu (półprzezroczysty ciemny prostokąt)
             s = pygame.Surface((self.slot_size, self.slot_size), pygame.SRCALPHA)
             pygame.draw.rect(s, (20, 20, 30, 180), (0, 0, self.slot_size, self.slot_size), border_radius=5)
             window.blit(s, (x, self.y_pos))
             
-            # Obramowanie slotu
             pygame.draw.rect(window, (80, 80, 100), slot_rect, 1, border_radius=5)
-
-            # Rysowanie ikony z zachowaniem proporcji
             self.draw_proportional_icon(window, icon, slot_rect)
 
-            # Numeracja klawiszy (1, 2, 3...)
             key_label = self.font.render(str(i + 1), True, (200, 200, 200))
             window.blit(key_label, (x + 5, self.y_pos + 2))
 
-        # 2. Rysowanie animowanej ramki wyboru (na wierzchu)
-        # Ramka jest nieco większa od slotu dla efektu "podświetlenia"
+        # 3. Rysowanie animowanej ramki wyboru
         glow_rect = pygame.Rect(self.frame_x - 2, self.y_pos - 2, self.slot_size + 4, self.slot_size + 4)
         pygame.draw.rect(window, (0, 200, 255), glow_rect, 3, border_radius=6)
         
-        # Dodatkowy napis pod paskiem
+        # 4. Tryb broni pod paskiem
         mode_name = "SYSTEM LASEROWY" if self.active_set == 1 else "WYRZUTNIA RAKIET"
         mode_txt = self.font.render(mode_name, True, (0, 255, 255))
         window.blit(mode_txt, (self.cxx // 2 - mode_txt.get_width() // 2, self.y_pos + self.slot_size + 5))
